@@ -35,5 +35,5 @@ export async function joinOffice(form: FormData) {
   if (!github) return;
   await upsertUser(db, s.user);
   const { officeId } = await joinByInvite(db, String(form.get("code") ?? ""), s.user.id, github);
-  redirect(`/offices/${officeId}`);
+  redirect(`/teams/${officeId}`);
 }

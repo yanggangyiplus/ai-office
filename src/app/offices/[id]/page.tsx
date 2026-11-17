@@ -49,7 +49,8 @@ export default async function OfficeHome({
       <header className="mb-4 flex items-center justify-between text-white">
         <h1 className="text-2xl font-bold">{office.name}</h1>
         <nav className="flex gap-3 text-sm">
-          <Link href="/offices" className="underline">내 오피스</Link>
+          <Link href="/me" className="underline">내 공간</Link>
+          <Link href={`/teams/${id}`} className="underline">공간으로 보기</Link>
           {isAdmin && <Link href={`/offices/${id}/settings`} className="underline">설정</Link>}
         </nav>
       </header>
