@@ -5,10 +5,12 @@ import { meetings, todos } from "@/db/schema";
 import type { Db } from "@/db";
 import { createInvite, createOffice, joinByInvite, removeMember, saveSettings, upsertUser } from "./offices";
 import { NotionLinkError } from "./notion";
+import { NotConnectedError, saveConnection } from "./connections";
 import {
   AlreadyConfirmedError,
   confirmMeeting,
   editTodos,
+  makeDeps,
   regenerate,
   registerMeeting,
   type MeetingDeps,
@@ -61,6 +63,28 @@ describe("registerMeeting", () => {
     const bad = deps({ fetchText: async () => { throw new NotionLinkError("not_under_parent"); } });
     await expect(registerMeeting(db, bad, officeId, "m1", "u")).rejects.toBeInstanceOf(NotionLinkError);
     expect(await db.select().from(meetings)).toHaveLength(0);
+  });
+});
+
+describe("makeDeps (personal notion token)", () => {
+  it("throws NotConnectedError when the user has no Notion token", async () => {
+    await saveSettings(db, officeId, "admin", { notionParentPageId: "parent" });
+    const err = await makeDeps(db, officeId, "m1").catch((e) => e);
+    expect(err).toBeInstanceOf(NotConnectedError);
+    expect(err.provider).toBe("notion");
+  });
+
+  it("returns fetchText and summarize once the user saved a Notion token", async () => {
+    await saveSettings(db, officeId, "admin", { notionParentPageId: "parent" });
+    await saveConnection(db, "m1", "notion", "secret_x");
+    const d = await makeDeps(db, officeId, "m1");
+    expect(typeof d.fetchText).toBe("function");
+    expect(typeof d.summarize).toBe("function");
+  });
+
+  it("explains that the team has no Notion parent page yet", async () => {
+    await saveConnection(db, "m1", "notion", "secret_x");
+    await expect(makeDeps(db, officeId, "m1")).rejects.toThrow(/notion/);
   });
 });
 

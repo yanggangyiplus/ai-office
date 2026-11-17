@@ -2,13 +2,14 @@ import { Client } from "@notionhq/client";
 import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/db";
 import { meetings, members, offices, todos, users } from "@/db/schema";
-import { decrypt } from "./crypto";
+import { requireToken } from "./connections";
+import { ValidationError } from "./errors";
 import { fetchMeetingText, type NotionLike } from "./notion";
 import { isMember, ForbiddenError } from "./offices";
 import { anthropicLlm, matchAssignee, summarizeMeeting, type Summary } from "./summarize";
 
 export class AlreadyConfirmedError extends Error {}
-export class ValidationError extends Error {}
+export { ValidationError }; // re-exported for existing importers
 
 export type MeetingDeps = {
   fetchText(url: string): Promise<{ pageId: string; title: string; text: string }>;
@@ -23,10 +24,11 @@ export type TodoInput = {
   description?: string;
 };
 
-export async function makeDeps(db: Db, officeId: string): Promise<MeetingDeps> {
+// Reads with the acting user's own Notion token; the team only supplies the '회의록' parent page.
+export async function makeDeps(db: Db, officeId: string, userId: string): Promise<MeetingDeps> {
   const [o] = await db.select().from(offices).where(eq(offices.id, officeId));
-  if (!o?.notionToken || !o.notionParentPageId) throw new Error("notion not configured");
-  const client = new Client({ auth: decrypt(o.notionToken) }) as unknown as NotionLike;
+  if (!o?.notionParentPageId) throw new Error("notion parent page not configured for this team");
+  const client = new Client({ auth: await requireToken(db, userId, "notion") }) as unknown as NotionLike;
   return {
     fetchText: (url) => fetchMeetingText(client, o.notionParentPageId!, url),
     summarize: (text) => summarizeMeeting(anthropicLlm, text),

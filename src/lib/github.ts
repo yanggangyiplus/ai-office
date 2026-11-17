@@ -2,7 +2,7 @@ import { Octokit } from "@octokit/rest";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { Db } from "@/db";
 import { meetings, offices, todos, users } from "@/db/schema";
-import { decrypt } from "./crypto";
+import { requireToken } from "./connections";
 
 // The Octokit calls we use, so tests can pass a fake.
 export type GithubLike = {
@@ -36,10 +36,16 @@ export type WorkItem = {
   hasOpenPr: boolean;
 };
 
-export async function makeGithub(db: Db, officeId: string): Promise<GithubLike> {
-  const [o] = await db.select({ t: offices.githubToken }).from(offices).where(eq(offices.id, officeId));
-  if (!o?.t) throw new Error("github not configured");
-  return new Octokit({ auth: decrypt(o.t) }) as unknown as GithubLike;
+// Uses the acting user's own GitHub token (issues are created as them).
+export async function makeGithub(db: Db, userId: string): Promise<GithubLike> {
+  return new Octokit({ auth: await requireToken(db, userId, "github") }) as unknown as GithubLike;
+}
+
+// GitHub says 403/404 when this token cannot write to (or even see) the repo.
+export class GithubPermissionError extends Error {
+  constructor(public repo: string) {
+    super(`no permission on ${repo}`);
+  }
 }
 
 const split = (repo: string) => {
@@ -85,6 +91,8 @@ export async function createIssuesForTodos(
       out.push({ todoId: todo.id, url: res.data.html_url });
     } catch (e) {
       await db.update(todos).set({ issueUrl: null }).where(eq(todos.id, todo.id));
+      const status = (e as { status?: number }).status;
+      if (status === 403 || status === 404) throw new GithubPermissionError(todo.repo);
       throw e;
     }
   }

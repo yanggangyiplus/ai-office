@@ -6,7 +6,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { meetings, offices } from "@/db/schema";
 import { buildBoard } from "@/lib/board";
-import { fetchWork, makeGithub, type WorkItem } from "@/lib/github";
+import { loadWork } from "@/lib/board-data";
 import { officeMembers } from "@/lib/meetings";
 import { isMember } from "@/lib/offices";
 import { makeInvite } from "@/app/actions";
@@ -41,17 +41,7 @@ export default async function OfficeHome({
   const ms = await officeMembers(db, id);
   const list = await db.select().from(meetings).where(eq(meetings.officeId, id)).orderBy(desc(meetings.createdAt));
 
-  let items: WorkItem[] = [];
-  let boardError = "";
-  if (office.githubToken && office.repos.length) {
-    try {
-      items = await fetchWork(await makeGithub(db, id), office.repos);
-    } catch {
-      boardError = "GitHub에서 현황을 불러오지 못했습니다. 토큰과 저장소 이름을 확인하세요.";
-    }
-  } else {
-    boardError = isAdmin ? "설정에서 GitHub 토큰과 저장소를 등록하면 현황판이 채워집니다." : "관리자가 GitHub를 연결하면 현황판이 채워집니다.";
-  }
+  const { items, note: boardError } = await loadWork(db, s.user.id, office.repos);
   const board = buildBoard(items, ms);
 
   return (

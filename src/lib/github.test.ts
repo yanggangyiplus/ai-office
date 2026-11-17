@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { makeTestDb } from "@/db/testdb";
 import { todos } from "@/db/schema";
 import type { Db } from "@/db";
-import { createIssuesForTodos, fetchWork, type GithubLike } from "./github";
+import { GithubPermissionError, createIssuesForTodos, fetchWork, makeGithub, type GithubLike } from "./github";
+import { NotConnectedError, saveConnection } from "./connections";
 import { createInvite, createOffice, joinByInvite, upsertUser } from "./offices";
 import { confirmMeeting, registerMeeting } from "./meetings";
 
@@ -60,6 +61,40 @@ describe("createIssuesForTodos", () => {
     await createIssuesForTodos(db, gh(), meetingId, ids);
     await createIssuesForTodos(db, gh(), meetingId, ids);
     expect(created).toHaveLength(1);
+  });
+});
+
+describe("personal github token", () => {
+  it("makeGithub throws NotConnectedError when the user has no github token", async () => {
+    const err = await makeGithub(db, "m1").catch((e) => e);
+    expect(err).toBeInstanceOf(NotConnectedError);
+    expect(err.provider).toBe("github");
+  });
+
+  it("makeGithub returns a client once the user saved a token", async () => {
+    process.env.TOKEN_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+    await saveConnection(db, "m1", "github", "ghp_x");
+    const client = await makeGithub(db, "m1");
+    expect(typeof client.issues.create).toBe("function");
+  });
+
+  it("turns a 403 from GitHub into GithubPermissionError and releases the claim", async () => {
+    await confirmMeeting(db, meetingId, "admin");
+    const denied = gh({
+      issues: { create: async () => { throw Object.assign(new Error("forbidden"), { status: 403 }); }, listForRepo: async () => ({ data: [] }) },
+    } as unknown as Partial<GithubLike>);
+    const err = await createIssuesForTodos(db, denied, meetingId, await todoIds()).catch((e) => e);
+    expect(err).toBeInstanceOf(GithubPermissionError);
+    expect(err.repo).toBe("o/r");
+    expect((await db.select().from(todos))[0].issueUrl).toBeNull();
+  });
+
+  it("also treats a 404 (repo not visible to this token) as a permission problem", async () => {
+    await confirmMeeting(db, meetingId, "admin");
+    const hidden = gh({
+      issues: { create: async () => { throw Object.assign(new Error("not found"), { status: 404 }); }, listForRepo: async () => ({ data: [] }) },
+    } as unknown as Partial<GithubLike>);
+    await expect(createIssuesForTodos(db, hidden, meetingId, await todoIds())).rejects.toBeInstanceOf(GithubPermissionError);
   });
 });
 

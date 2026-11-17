@@ -43,7 +43,9 @@ export function MeetingLinkForm({ officeId }: { officeId: string }) {
         setState("error");
         const reason = r.status === 422 ? await r.text() : "";
         setMsg(
-          reason === "too_long"
+          r.status === 428
+            ? "먼저 내 공간에서 Notion을 연결하세요. (내 공간의 컴퓨터에서 토큰을 붙여넣으면 됩니다)"
+            : reason === "too_long"
             ? "회의록이 너무 깁니다(3만 자 초과). 나눠서 올려 주세요."
             : reason === "not_under_parent"
               ? "관리자가 지정한 '회의록' 페이지 아래에 있는 Notion 페이지가 아닙니다."
@@ -64,7 +66,8 @@ export function MeetingLinkForm({ officeId }: { officeId: string }) {
   );
 }
 
-export function SettingsForm({ officeId, configured }: { officeId: string; configured: { notion: boolean; github: boolean } }) {
+// Team settings only: tokens are personal now and live in each person's own space (/me).
+export function SettingsForm({ officeId }: { officeId: string }) {
   const router = useRouter();
   const [saved, setSaved] = useState(false);
   return (
@@ -76,9 +79,7 @@ export function SettingsForm({ officeId, configured }: { officeId: string; confi
         const g = (k: string) => String(f.get(k) ?? "").trim() || undefined;
         const repos = g("repos")?.split(/[\s,]+/).filter(Boolean);
         const r = await post(`/api/offices/${officeId}/settings`, {
-          notionToken: g("notionToken"),
           notionParentPageId: g("notionParentPageId"),
-          githubToken: g("githubToken"),
           repos,
           defaultRepo: repos?.[0],
         });
@@ -86,12 +87,9 @@ export function SettingsForm({ officeId, configured }: { officeId: string; confi
         if (r.ok) router.refresh();
       }}
     >
-      <label className="font-bold">Notion 연동 토큰 ({configured.notion ? "설정됨" : "미설정"})</label>
-      <input name="notionToken" type="password" className="px-input" placeholder="비워 두면 유지" autoComplete="off" />
+      <p className="text-sm">GitHub·Notion 연결은 각자 내 공간에서 합니다. 여기서는 팀이 함께 쓰는 설정만 정해요.</p>
       <label className="font-bold">Notion '회의록' 상위 페이지 ID</label>
       <input name="notionParentPageId" className="px-input" />
-      <label className="font-bold">GitHub 토큰 ({configured.github ? "설정됨" : "미설정"})</label>
-      <input name="githubToken" type="password" className="px-input" placeholder="비워 두면 유지" autoComplete="off" />
       <label className="font-bold">저장소 (owner/name, 쉼표로 구분 · 첫 번째가 기본)</label>
       <input name="repos" className="px-input" placeholder="team/app, team/docs" />
       <button className="px-btn self-start">저장</button>

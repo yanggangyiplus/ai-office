@@ -21,8 +21,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
       <Link href={`/offices/${id}`} className="underline">← 오피스로</Link>
       <h1 className="text-2xl font-bold">설정</h1>
       <div className="px p-4">
-        {/* Tokens are never sent back to the browser; only whether they are set. */}
-        <SettingsForm officeId={id} configured={{ notion: !!o.notionToken, github: !!o.githubToken }} />
+        <SettingsForm officeId={id} />
       </div>
     </main>
   );

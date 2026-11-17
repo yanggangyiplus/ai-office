@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Db } from "@/db";
 import { connections } from "@/db/schema";
 import { decrypt, encrypt } from "./crypto";
-import { ValidationError } from "./meetings";
+import { ValidationError } from "./errors";
 
 export type Provider = "github" | "notion";
 const PROVIDERS: Provider[] = ["github", "notion"];

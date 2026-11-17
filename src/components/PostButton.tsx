@@ -40,8 +40,13 @@ export function PostButton({
             body: JSON.stringify(body ?? {}),
           });
           setBusy(false);
-          if (r.ok) router.refresh();
-          else setErr(MESSAGES[r.status] ?? "실패했습니다. 잠시 후 다시 시도하세요.");
+          if (r.ok) return router.refresh();
+          const text = r.status === 428 || r.status === 403 ? await r.text() : "";
+          if (text.startsWith("not_connected:")) {
+            setErr(`먼저 내 공간에서 ${text.endsWith("github") ? "GitHub" : "Notion"}을 연결하세요.`);
+          } else if (text.startsWith("github_permission:")) {
+            setErr(`${text.slice("github_permission:".length)} 저장소에 이슈를 만들 권한이 없습니다. 내 GitHub 토큰 권한을 확인하세요.`);
+          } else setErr(MESSAGES[r.status] ?? "실패했습니다. 잠시 후 다시 시도하세요.");
         }}
       >
         {busy ? "..." : children}
