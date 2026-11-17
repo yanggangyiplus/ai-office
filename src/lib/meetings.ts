@@ -37,7 +37,7 @@ export async function makeDeps(db: Db, officeId: string, userId: string): Promis
 
 export async function officeMembers(db: Db, officeId: string) {
   const rows = await db
-    .select({ userId: users.id, name: users.name, githubUsername: users.githubUsername })
+    .select({ userId: users.id, name: users.name, githubUsername: users.githubUsername, joinedAt: members.joinedAt })
     .from(members)
     .innerJoin(users, eq(users.id, members.userId))
     .where(eq(members.officeId, officeId));

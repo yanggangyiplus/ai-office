@@ -11,6 +11,7 @@ import {
   confirmMeeting,
   editTodos,
   makeDeps,
+  officeMembers,
   regenerate,
   registerMeeting,
   type MeetingDeps,
@@ -63,6 +64,14 @@ describe("registerMeeting", () => {
     const bad = deps({ fetchText: async () => { throw new NotionLinkError("not_under_parent"); } });
     await expect(registerMeeting(db, bad, officeId, "m1", "u")).rejects.toBeInstanceOf(NotionLinkError);
     expect(await db.select().from(meetings)).toHaveLength(0);
+  });
+});
+
+describe("officeMembers", () => {
+  it("returns each member's join time so desks can be assigned in order", async () => {
+    const ms = await officeMembers(db, officeId);
+    expect(ms.map((m) => m.userId).sort()).toEqual(["admin", "m1"]);
+    for (const m of ms) expect(m.joinedAt).toBeInstanceOf(Date);
   });
 });
 
