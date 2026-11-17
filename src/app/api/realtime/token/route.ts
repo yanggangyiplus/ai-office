@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { members } from "@/db/schema";
-import { realtimeCapability } from "@/lib/realtime/server";
+import { REALTIME_TOKEN_TTL_MS, realtimeCapability } from "@/lib/realtime/server";
 
 // Ably calls this (authUrl) to get a short-lived token limited to the signed-in user's own teams.
 async function issue() {
@@ -15,7 +15,7 @@ async function issue() {
   const token = await new Ably.Rest({ key }).auth.createTokenRequest({
     clientId: s.user.id,
     capability: realtimeCapability(teams.map((t) => t.id)),
-    ttl: 60 * 60 * 1000,
+    ttl: REALTIME_TOKEN_TTL_MS,
   });
   return Response.json(token);
 }

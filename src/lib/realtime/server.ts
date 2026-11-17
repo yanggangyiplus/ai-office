@@ -3,6 +3,10 @@ import type { ChatMessage } from "./types";
 
 export const teamChannel = (officeId: string) => `team:${officeId}`;
 
+// Short on purpose: the capability is frozen into the token, so a removed member loses access within minutes.
+// Ably renews the token through /api/realtime/token, which rebuilds the capability from the current memberships.
+export const REALTIME_TOKEN_TTL_MS = 5 * 60 * 1000;
+
 // What a browser may do on Ably: only the channels of teams it belongs to.
 type Op = "subscribe" | "publish" | "presence";
 export function realtimeCapability(teamIds: string[]): Record<string, Op[]> {

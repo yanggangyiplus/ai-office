@@ -5,7 +5,7 @@ import type { Db } from "@/db";
 import { recentChat, sendChat } from "./chat";
 import { ValidationError } from "./errors";
 import { createInvite, createOffice, ForbiddenError, joinByInvite, upsertUser } from "./offices";
-import { realtimeCapability, teamChannel } from "./realtime/server";
+import { REALTIME_TOKEN_TTL_MS, realtimeCapability, teamChannel } from "./realtime/server";
 import type { ChatMessage } from "./realtime/types";
 
 let db: Db;
@@ -45,6 +45,13 @@ describe("sendChat", () => {
     expect(published).toHaveLength(0);
   });
 
+  it("still returns the saved message when only the live publish fails (so a retry does not duplicate it)", async () => {
+    const failing = async () => { throw new Error("ably down"); };
+    const m = await sendChat(db, failing, teamId, "m1", "저장은 됐어요");
+    expect(m.body).toBe("저장은 됐어요");
+    expect((await db.select().from(messages)).map((r) => r.body)).toEqual(["저장은 됐어요"]);
+  });
+
   it("accepts exactly 500 characters", async () => {
     const m = await sendChat(db, publish, teamId, "m1", "가".repeat(500));
     expect(m.body).toHaveLength(500);
@@ -73,6 +80,11 @@ describe("recentChat", () => {
 describe("realtime channel access", () => {
   it("names the channel team:<id>", () => {
     expect(teamChannel("abc")).toBe("team:abc");
+  });
+
+  it("issues short-lived tokens so a removed member loses access within minutes", () => {
+    expect(REALTIME_TOKEN_TTL_MS).toBeLessThanOrEqual(10 * 60 * 1000);
+    expect(REALTIME_TOKEN_TTL_MS).toBeGreaterThanOrEqual(60 * 1000);
   });
 
   it("grants subscribe, publish and presence on the user's teams only", () => {

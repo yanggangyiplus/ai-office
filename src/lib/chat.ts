@@ -26,7 +26,9 @@ export async function sendChat(
   const [saved] = await db.insert(messages).values({ officeId, userId, body: text }).returning();
   const [u] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId));
   const m = toMessage({ ...saved, name: u?.name ?? "" });
-  await publish(officeId, m);
+  // The message is already saved. If only the live publish fails, still return it: a 500 here would make the
+  // sender retry and save a duplicate. Others see it from the saved history when they next enter.
+  await publish(officeId, m).catch(() => {});
   return m;
 }
 

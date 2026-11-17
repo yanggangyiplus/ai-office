@@ -1,4 +1,5 @@
 import * as Ably from "ably";
+import { applyPresence, isServerMessage, type PeerEntry } from "./ably-rules";
 import type { ChatMessage, PeerState, Position, Self, Transport } from "./types";
 
 type PresenceData = { self: Self; pos: Position };
@@ -10,7 +11,7 @@ export class AblyTransport implements Transport {
   private channel: Ably.RealtimeChannel | null = null;
   private self: Self | null = null;
   private pos: Position = { x: 0, y: 0, dir: "down" };
-  private peers = new Map<string, PeerState>();
+  private peers = new Map<string, PeerEntry>();
   private moveCbs = new Set<(id: string, p: Position) => void>();
   private peerCbs = new Set<(p: PeerState[]) => void>();
   private chatCbs = new Set<(m: ChatMessage) => void>();
@@ -24,22 +25,19 @@ export class AblyTransport implements Transport {
   }
 
   private onPresence(m: Ably.PresenceMessage) {
-    const me = this.self!;
-    const data = m.data as PresenceData | undefined;
+    const me = this.self;
+    const client = this.client;
+    if (!me || !client) return; // closed while an event was in flight
     if (m.clientId === me.userId) {
       // Same account entered from another connection: that one is newer, so this tab steps aside.
-      if (m.action === "enter" && m.connectionId !== this.client!.connection.id) {
+      if (m.action === "enter" && m.connectionId !== client.connection.id) {
         this.kickedCbs.forEach((cb) => cb());
         void this.close();
       }
       return;
     }
-    if (m.action === "leave" || m.action === "absent") {
-      if (this.peers.delete(m.clientId)) this.emitPeers();
-    } else if (data) {
-      this.peers.set(m.clientId, { ...data.self, id: m.clientId, ...data.pos });
-      this.emitPeers();
-    }
+    const ev = { action: m.action, clientId: m.clientId, connectionId: m.connectionId, data: m.data as PresenceData | undefined };
+    if (applyPresence(this.peers, ev, me)) this.emitPeers();
   }
 
   async connect(self: Self, start: Position): Promise<void> {
@@ -57,6 +55,7 @@ export class AblyTransport implements Transport {
       this.moveCbs.forEach((cb) => cb(d.id, d.pos));
     });
     await channel.subscribe("chat", (m) => {
+      if (!isServerMessage(m)) return; // only the server (saved, validated) may publish chat; a browser publish is a forgery
       this.chatCbs.forEach((cb) => cb(m.data as ChatMessage));
     });
     await channel.presence.subscribe((m) => this.onPresence(m));
