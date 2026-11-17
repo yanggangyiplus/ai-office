@@ -1,12 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { drawAvatar, drawBubble, drawHint, drawMap, drawNameTag } from "@/lib/space/draw";
-import { TILE, deskSpots, interactTarget, type Interactable, type SpaceMap } from "@/lib/space/map";
+import { VIEW_H, VIEW_W, cameraFor, type Zoom } from "@/lib/space/camera";
+import { drawBubble, drawHint, drawPerson, nameTag, rect, roleTags } from "@/lib/space/draw";
+import { TILE, interactTarget, type Interactable, type SpaceMap } from "@/lib/space/map";
 import { moveStep, smoothPeer } from "@/lib/space/move";
 import { shouldPublishMove, shouldRefreshPresence } from "@/lib/space/net";
+import { drawRoomScene, drawTeamScene, type DeskOwner } from "@/lib/space/scene";
 import type { Position, Self, Transport } from "@/lib/realtime/types";
 
-const SIZE = 32; // drawn size of a character (8x8 sprite x4)
+const FOOT = 6; // the hitbox is centred on the player; the feet are at its bottom edge
 const NAME: Record<Interactable, string> = { meeting: "회의실", board: "현황판", computer: "컴퓨터", teamboard: "팀 보드", door: "문", entrance: "입구" };
 const MOVE_KEYS: Record<string, [number, number]> = {
   arrowleft: [-1, 0], a: [-1, 0], arrowright: [1, 0], d: [1, 0], arrowup: [0, -1], w: [0, -1], arrowdown: [0, 1], s: [0, 1],
@@ -15,21 +17,24 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 type Peer = { self: Self; shown: { x: number; y: number }; target: Position };
 type Props = {
   map: SpaceMap;
+  scene: "team" | "room";
   self: Self;
   start: Position;
   transport: Transport | null; // null = walking alone (my room)
-  deskOwners?: { name: string; desk: number }[];
+  zoom: Zoom;
+  owners?: DeskOwner[]; // who sits at which workstation (name, roles, status dot)
+  teamPercent?: number;
+  meetingText?: string;
+  rolesByUser?: Record<string, string[]>; // role tags above walking characters
   bubbles?: Record<string, string>; // speech bubble text by userId
-  scale?: number;
   onInteract: (t: Interactable) => void;
 };
 
-// The walkable map. Everything is drawn on one canvas; people and the keyboard are handled here, the network lives behind `transport`.
+// The walkable map. Everything is drawn on one canvas with a camera that follows the player; the network lives behind `transport`.
 export function SpaceCanvas(props: Props) {
   const { map, self, start, transport } = props;
-  const scale = props.scale ?? 1;
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const latest = useRef(props); // newest bubbles/desks/handlers without restarting the game loop
+  const latest = useRef(props); // newest owners/bubbles/zoom/handlers without restarting the game loop
   latest.current = props;
   const [kicked, setKicked] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -95,6 +100,7 @@ export function SpaceCanvas(props: Props) {
     const loop = (now: number) => {
       const dt = Math.min(now - last, 100);
       last = now;
+      const p = latest.current;
 
       let dx = 0;
       let dy = 0;
@@ -117,34 +123,34 @@ export function SpaceCanvas(props: Props) {
       }
       wasMoving = moving;
 
-      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      // camera: world -> screen
+      const cam = cameraFor(map, p.zoom, pos);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.imageSmoothingEnabled = false;
-      drawMap(ctx, map);
-
-      const spots = deskSpots(map);
-      for (const o of latest.current.deskOwners ?? []) {
-        const s = spots[o.desk];
-        if (s) drawNameTag(ctx, o.name, s.x, s.y - TILE - 4, 0);
-      }
+      rect(ctx, 0, 0, VIEW_W, VIEW_H, "#cfd6de"); // outside the map (letterbox) reads as wall
+      ctx.setTransform(cam.scale, 0, 0, cam.scale, -cam.x * cam.scale, -cam.y * cam.scale);
+      if (p.scene === "team") drawTeamScene(ctx, { owners: p.owners ?? [], teamPercent: p.teamPercent ?? 0, meetingText: p.meetingText ?? "" });
+      else drawRoomScene(ctx);
 
       const frameOf = (m: boolean) => (m ? ((Math.floor(walkClock / 150) % 2) as 0 | 1) : 0);
-      const people: { id: string; userId: string; name: string; x: number; y: number; dir: Position["dir"]; frame: 0 | 1; me: boolean }[] = [
-        { id: self.id, userId: self.userId, name: self.name, x: pos.x, y: pos.y + SIZE / 2 - 6, dir: pos.dir, frame: frameOf(moving), me: true },
+      const people: { id: string; userId: string; name: string; x: number; foot: number; dir: Position["dir"]; frame: 0 | 1; me: boolean }[] = [
+        { id: self.id, userId: self.userId, name: self.name, x: pos.x, foot: pos.y + FOOT, dir: pos.dir, frame: frameOf(moving), me: true },
       ];
-      for (const p of peers.values()) {
-        p.shown = smoothPeer(p.shown, p.target, dt);
-        const walking = Math.hypot(p.target.x - p.shown.x, p.target.y - p.shown.y) > 1.5;
-        people.push({ id: p.self.id, userId: p.self.userId, name: p.self.name, x: p.shown.x, y: p.shown.y + SIZE / 2 - 6, dir: p.target.dir, frame: frameOf(walking), me: false });
+      for (const peer of peers.values()) {
+        peer.shown = smoothPeer(peer.shown, peer.target, dt);
+        const walking = Math.hypot(peer.target.x - peer.shown.x, peer.target.y - peer.shown.y) > 1.5;
+        people.push({ id: peer.self.userId, userId: peer.self.userId, name: peer.self.name, x: peer.shown.x, foot: peer.shown.y + FOOT, dir: peer.target.dir, frame: frameOf(walking), me: false });
       }
-      people.sort((a, b) => a.y - b.y); // lower on screen is drawn later, in front
-      for (const p of people) {
-        drawAvatar(ctx, p.id, p.x, p.y, SIZE, p.dir, p.frame);
-        drawNameTag(ctx, p.name, p.x, p.y, SIZE);
-        const text = latest.current.bubbles?.[p.userId];
-        if (text) drawBubble(ctx, text, p.x, p.y, SIZE);
-        if (p.me) {
+      people.sort((a, b) => a.foot - b.foot); // lower on screen is drawn later, in front
+      for (const q of people) {
+        drawPerson(ctx, q.id, q.x, q.foot, q.dir, q.frame, q.me);
+        roleTags(ctx, p.rolesByUser?.[q.userId] ?? [], q.x, q.foot - 23 - 15 - 13);
+        nameTag(ctx, q.name, q.x, q.foot);
+        const text = p.bubbles?.[q.userId];
+        if (text) drawBubble(ctx, text, q.x, q.foot);
+        if (q.me) {
           const t = interactTarget(map, pos);
-          if (t) drawHint(ctx, `E · ${NAME[t]}`, p.x, p.y);
+          if (t) drawHint(ctx, `E · ${NAME[t]}`, q.x, q.foot);
         }
       }
 
@@ -166,18 +172,16 @@ export function SpaceCanvas(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, transport, self.id]);
 
-  const w = map.cols * TILE * scale;
-  const h = map.rows * TILE * scale;
   return (
-    <div className="relative mx-auto w-full" style={{ maxWidth: w }}>
+    <div className="relative w-full">
       <canvas
         ref={canvasRef}
-        width={w}
-        height={h}
+        width={VIEW_W}
+        height={VIEW_H}
         role="img"
         aria-label="오피스 맵. 방향키 또는 WASD로 걷고, E 키나 클릭으로 가까운 곳을 사용합니다."
-        className="block w-full border-4 border-black"
-        style={{ imageRendering: "pixelated", aspectRatio: `${w} / ${h}` }}
+        className="block w-full rounded-md border"
+        style={{ imageRendering: "pixelated", aspectRatio: `${VIEW_W} / ${VIEW_H}`, borderColor: "var(--line)", background: "#e8ebf0" }}
       />
       {kicked && (
         <div className="px absolute inset-0 m-auto flex h-24 w-4/5 items-center justify-center p-4 text-center font-bold">
@@ -192,3 +196,5 @@ export function SpaceCanvas(props: Props) {
     </div>
   );
 }
+
+export { TILE };

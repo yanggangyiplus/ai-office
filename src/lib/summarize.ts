@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-import { PRESET_ROLES } from "./roles";
+import { PRESET_ROLES } from "./role-meta";
 
 export type Summary = {
   decisions: string[];

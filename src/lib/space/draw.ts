@@ -1,140 +1,119 @@
 import type { Dir } from "../realtime/types";
-import { avatarColors, avatarSprite } from "./avatar";
-import { TILE, type SpaceMap } from "./map";
+import { roleColor } from "../role-meta";
 
-const INK = "#1d1b2e";
-const FONT = '12px Galmuri11, Galmuri9, ui-monospace, monospace';
+export const FONT = '9px "Galmuri9", "Galmuri11", ui-monospace, monospace';
+const INK = "#2b3340";
 
-// One 8x8 sprite scaled to `size` px, standing with its feet at (x, y).
-export function drawAvatar(
-  ctx: CanvasRenderingContext2D,
-  id: string,
-  x: number,
-  y: number,
-  size: number,
-  dir: Dir,
-  frame: 0 | 1 = 0,
-) {
-  const colors = avatarColors(id);
-  const px = size / 8;
-  ctx.fillStyle = "rgba(0,0,0,0.25)"; // shadow
-  ctx.fillRect(x - size * 0.35, y - px * 0.5, size * 0.7, px);
-  avatarSprite(dir, frame).forEach((row, ry) =>
-    [...row].forEach((c, rx) => {
-      if (c === ".") return;
-      ctx.fillStyle = colors[c];
-      ctx.fillRect(Math.round(x - size / 2 + rx * px), Math.round(y - size + ry * px), Math.ceil(px), Math.ceil(px));
-    }),
-  );
+export const rect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, col: string) => {
+  ctx.fillStyle = col;
+  ctx.fillRect(x, y, w, h);
+};
+
+export function label(ctx: CanvasRenderingContext2D, t: string, x: number, y: number, col = INK, align: CanvasTextAlign = "left") {
+  ctx.font = FONT;
+  ctx.textBaseline = "top";
+  ctx.textAlign = align;
+  ctx.fillStyle = col;
+  ctx.fillText(t, x, y);
 }
 
-function tile(ctx: CanvasRenderingContext2D, ch: string, col: number, row: number) {
-  const x = col * TILE;
-  const y = row * TILE;
-  const floor = (col + row) % 2 ? "#cfae7e" : "#d9b98a";
-  const box = (c: string, ox = 0, oy = 0, w = TILE, h = TILE) => {
-    ctx.fillStyle = c;
-    ctx.fillRect(x + ox, y + oy, w, h);
-  };
-  switch (ch) {
-    case "#":
-      box("#2b2d42");
-      box("#3d405b", 0, 0, TILE, 6);
-      break;
-    case "D": // desk with a monitor
-      box(floor);
-      box("#8d6e4a", 2, 6, TILE - 4, TILE - 10);
-      box("#5c4630", 2, TILE - 6, TILE - 4, 4);
-      box("#1d1b2e", 9, 8, 14, 10);
-      box("#8ecae6", 11, 10, 10, 6);
-      break;
-    case "M":
-      box("#8ecae6");
-      box("#6bb3d6", 0, 0, TILE, 2);
-      break;
-    case "B":
-      box("#ffd166");
-      box("#e0b24e", 0, 0, TILE, 2);
-      break;
-    case "E":
-      box(floor);
-      box("#adb5bd", 4, 8, TILE - 8, TILE - 16);
-      break;
-    case "C": // computer
-      box(floor);
-      box("#495057", 4, 8, TILE - 8, TILE - 12);
-      box("#a9e5ff", 7, 11, TILE - 14, 10);
-      break;
-    case "T": // team board
-      box(floor);
-      box("#6b4a2b", 2, 2, TILE - 4, TILE - 6);
-      box("#fff8e7", 5, 5, TILE - 10, TILE - 12);
-      box("#ef476f", 8, 8, 6, 4);
-      box("#118ab2", 16, 8, 6, 4);
-      break;
-    case "X": // door
-      box(floor);
-      box("#7a4b2a", 6, 2, TILE - 12, TILE - 4);
-      box("#ffd166", TILE - 12, TILE / 2, 3, 3);
-      break;
-    default:
-      box(floor);
+// A small white name plate (blue when it is mine), centred on cx with its top at y.
+export function plate(ctx: CanvasRenderingContext2D, t: string, cx: number, y: number, me = false) {
+  ctx.font = FONT;
+  const w = Math.ceil(ctx.measureText(t).width) + 8;
+  const x = Math.round(cx - w / 2);
+  const edge = me ? "#3a66b3" : "#cfd6dd";
+  rect(ctx, x, y, w, 12, me ? "#4a7bd0" : "#ffffff");
+  rect(ctx, x, y, w, 1, edge); rect(ctx, x, y + 11, w, 1, edge); rect(ctx, x, y, 1, 12, edge); rect(ctx, x + w - 1, y, 1, 12, edge);
+  label(ctx, t, cx, y + 2, me ? "#ffffff" : INK, "center");
+}
+
+// One tag per role (a person can have several), centred on cx with its top at y. Shows at most 3, then "+N".
+export function roleTags(ctx: CanvasRenderingContext2D, roles: string[], cx: number, y: number) {
+  if (!roles.length) return;
+  ctx.font = FONT;
+  const shown = roles.slice(0, 3);
+  const items = shown.map((n) => ({ n, w: Math.ceil(ctx.measureText(n).width) + 8, col: roleColor(n) }));
+  if (roles.length > 3) items.push({ n: `+${roles.length - 3}`, w: 20, col: "#8a8f99" });
+  const total = items.reduce((a, i) => a + i.w + 2, -2);
+  let x = Math.round(cx - total / 2);
+  for (const i of items) {
+    rect(ctx, x, y, i.w, 11, i.col);
+    rect(ctx, x, y + 10, i.w, 1, "rgba(0,0,0,0.18)");
+    label(ctx, i.n, x + i.w / 2, y + 1, "#ffffff", "center");
+    x += i.w + 2;
   }
 }
 
-const ZONE_LABEL: Record<string, string> = { M: "회의실", B: "현황판", C: "컴퓨터", T: "팀 보드", X: "문", E: "입구" };
+const SHIRTS = ["#7c93ab", "#8aa39b", "#a995a8", "#9aa0b8", "#b49a86", "#7e9fa6"];
+const HAIRS = ["#2e2a28", "#3b2f2a", "#1f2328", "#4a3b30", "#5a4636"];
+const hash = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+const lighten = (hex: string, a: number) => {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (v: number) => Math.min(255, Math.round(v + (255 - v) * a));
+  return "#" + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => f(v).toString(16).padStart(2, "0")).join("");
+};
+const darken = (hex: string, a: number) => {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (v: number) => Math.round(v * (1 - a));
+  return "#" + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => f(v).toString(16).padStart(2, "0")).join("");
+};
 
-export function drawMap(ctx: CanvasRenderingContext2D, map: SpaceMap) {
-  map.grid.forEach((line, row) => [...line].forEach((ch, col) => tile(ctx, ch, col, row)));
-  // label each zone/object once, on its first tile
-  ctx.font = FONT;
-  ctx.textBaseline = "top";
-  const seen = new Set<string>();
-  map.grid.forEach((line, row) =>
-    [...line].forEach((ch, col) => {
-      if (!ZONE_LABEL[ch] || seen.has(ch)) return;
-      seen.add(ch);
-      const label = ZONE_LABEL[ch];
-      const w = ctx.measureText(label).width + 8;
-      ctx.fillStyle = "rgba(29,27,46,0.8)";
-      ctx.fillRect(col * TILE, row * TILE - 14, w, 14);
-      ctx.fillStyle = "#fff";
-      ctx.fillText(label, col * TILE + 4, row * TILE - 13);
-    }),
-  );
+export function personStyle(id: string, me: boolean) {
+  const h = hash(id);
+  return { shirt: me ? "#4a7bd0" : SHIRTS[h % SHIRTS.length], hair: HAIRS[(h >>> 3) % HAIRS.length] };
 }
 
-export function drawNameTag(ctx: CanvasRenderingContext2D, name: string, x: number, footY: number, size: number) {
-  ctx.font = FONT;
-  ctx.textBaseline = "top";
-  const w = ctx.measureText(name).width + 8;
-  ctx.fillStyle = "rgba(29,27,46,0.85)";
-  ctx.fillRect(Math.round(x - w / 2), Math.round(footY - size - 16), Math.ceil(w), 14);
-  ctx.fillStyle = "#fff";
-  ctx.fillText(name, Math.round(x - w / 2 + 4), Math.round(footY - size - 15));
+// A 14x24px character with its feet at (cx, footY). From behind going up, in profile going sideways, frame 0/1 swaps the legs.
+export function drawPerson(ctx: CanvasRenderingContext2D, id: string, cx: number, footY: number, dir: Dir, frame: 0 | 1, me: boolean) {
+  const { shirt, hair } = personStyle(id, me);
+  const x = Math.round(cx - 6);
+  const y = Math.round(footY - 23);
+  const skin = "#f0c8a0";
+  rect(ctx, x + 1, y + 23, 10, 2, "rgba(0,0,0,0.10)"); // shadow
+  const left = frame === 0 ? 6 : 4; // leg lengths swap between frames
+  const right = frame === 0 ? 4 : 6;
+  rect(ctx, x + 2, y + 17, 3, left, "#3b4450"); rect(ctx, x + 7, y + 17, 3, right, "#3b4450");
+  rect(ctx, x + 2, y + 17 + left - 1, 3, 1, "#20262d"); rect(ctx, x + 7, y + 17 + right - 1, 3, 1, "#20262d");
+  rect(ctx, x + 1, y + 9, 10, 8, shirt); rect(ctx, x + 1, y + 9, 10, 1, lighten(shirt, 0.25)); rect(ctx, x + 1, y + 16, 10, 1, darken(shirt, 0.2));
+  rect(ctx, x - 1, y + 10, 2, 6, darken(shirt, 0.15)); rect(ctx, x + 11, y + 10, 2, 6, darken(shirt, 0.15));
+  if (dir === "up") {
+    rect(ctx, x + 2, y, 8, 8, hair); rect(ctx, x + 1, y + 2, 1, 4, hair); rect(ctx, x + 10, y + 2, 1, 4, hair); rect(ctx, x + 5, y + 8, 2, 1, skin);
+  } else {
+    rect(ctx, x + 2, y, 8, 8, skin); rect(ctx, x + 1, y - 1, 10, 3, hair);
+    rect(ctx, x + 1, y + 1, 1, 4, hair); rect(ctx, x + 10, y + 1, 1, 4, hair);
+    if (dir === "down") { rect(ctx, x + 4, y + 4, 1, 1, "#2a2f36"); rect(ctx, x + 7, y + 4, 1, 1, "#2a2f36"); }
+    else if (dir === "left") { rect(ctx, x + 3, y + 4, 1, 1, "#2a2f36"); rect(ctx, x + 2, y + 1, 3, 3, hair); }
+    else { rect(ctx, x + 8, y + 4, 1, 1, "#2a2f36"); rect(ctx, x + 7, y + 1, 3, 3, hair); }
+  }
 }
 
-export function drawBubble(ctx: CanvasRenderingContext2D, text: string, x: number, footY: number, size: number) {
+// Name above a walking character: a dark chip (readable on the light floor).
+export function nameTag(ctx: CanvasRenderingContext2D, name: string, cx: number, footY: number) {
   ctx.font = FONT;
-  ctx.textBaseline = "top";
+  const w = Math.ceil(ctx.measureText(name).width) + 8;
+  const x = Math.round(cx - w / 2);
+  const y = Math.round(footY - 23 - 15);
+  rect(ctx, x, y, w, 12, "rgba(43,51,64,0.9)");
+  label(ctx, name, cx, y + 2, "#ffffff", "center");
+}
+
+export function drawBubble(ctx: CanvasRenderingContext2D, text: string, cx: number, footY: number) {
+  ctx.font = FONT;
   const t = text.length > 28 ? `${text.slice(0, 28)}…` : text;
-  const w = ctx.measureText(t).width + 12;
-  const bx = Math.round(x - w / 2);
-  const by = Math.round(footY - size - 38);
-  ctx.fillStyle = INK;
-  ctx.fillRect(bx - 2, by - 2, Math.ceil(w) + 4, 22);
-  ctx.fillStyle = "#fff8e7";
-  ctx.fillRect(bx, by, Math.ceil(w), 18);
-  ctx.fillStyle = INK;
-  ctx.fillText(t, bx + 6, by + 3);
+  const w = Math.ceil(ctx.measureText(t).width) + 12;
+  const x = Math.round(cx - w / 2);
+  const y = Math.round(footY - 23 - 50);
+  rect(ctx, x - 1, y - 1, w + 2, 20, INK);
+  rect(ctx, x, y, w, 18, "#ffffff");
+  rect(ctx, Math.round(cx) - 2, y + 18, 5, 3, INK); rect(ctx, Math.round(cx) - 1, y + 18, 3, 2, "#ffffff"); // tail
+  label(ctx, t, x + 6, y + 4, INK);
 }
 
-export function drawHint(ctx: CanvasRenderingContext2D, text: string, x: number, footY: number) {
+export function drawHint(ctx: CanvasRenderingContext2D, text: string, cx: number, footY: number) {
   ctx.font = FONT;
-  ctx.textBaseline = "top";
-  const w = ctx.measureText(text).width + 10;
-  ctx.fillStyle = "#ef476f";
-  ctx.fillRect(Math.round(x - w / 2), Math.round(footY + 4), Math.ceil(w), 16);
-  ctx.fillStyle = "#fff";
-  ctx.fillText(text, Math.round(x - w / 2 + 5), Math.round(footY + 6));
+  const w = Math.ceil(ctx.measureText(text).width) + 10;
+  const x = Math.round(cx - w / 2);
+  rect(ctx, x, Math.round(footY) + 5, w, 14, "#4a7bd0");
+  label(ctx, text, cx, Math.round(footY) + 8, "#ffffff", "center");
 }

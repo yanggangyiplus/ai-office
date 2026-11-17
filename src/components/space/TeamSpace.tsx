@@ -161,7 +161,9 @@ export function TeamSpace(props: {
               self={self}
               start={props.start}
               transport={transport}
-              deskOwners={props.deskOwners}
+              scene="team"
+              zoom="near"
+              owners={props.deskOwners.map((d) => ({ desk: d.desk, name: d.name, roles: [], me: d.name === me.name, state: "off" as const }))}
               bubbles={bubbles}
               onInteract={open}
             />

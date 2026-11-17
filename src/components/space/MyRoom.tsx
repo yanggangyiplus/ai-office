@@ -58,7 +58,7 @@ export function MyRoom({
       </header>
 
       <div className="floor border-4 border-black p-4">
-        <SpaceCanvas map={MY_ROOM} self={self} start={start} transport={null} scale={2} onInteract={open} />
+        <SpaceCanvas map={MY_ROOM} scene="room" zoom="fit" self={self} start={start} transport={null} onInteract={open} />
       </div>
 
       {/* The same things as buttons, for keyboard and screen-reader users */}

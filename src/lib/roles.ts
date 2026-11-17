@@ -4,9 +4,8 @@ import { members } from "@/db/schema";
 import { ValidationError } from "./errors";
 import { ForbiddenError, isMember, requireAdmin } from "./offices";
 
-export const PRESET_ROLES = ["PO", "기획", "디자인", "개발", "마케팅", "QA"];
-export const MAX_ROLES = 5;
-export const MAX_ROLE_CHARS = 12;
+import { MAX_ROLES, MAX_ROLE_CHARS, PRESET_ROLES } from "./role-meta";
+export { MAX_ROLES, MAX_ROLE_CHARS, PRESET_ROLES };
 
 export function normalizeRole(input: unknown): string {
   if (typeof input !== "string") throw new ValidationError("role must be text");
