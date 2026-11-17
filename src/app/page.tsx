@@ -9,7 +9,7 @@ export const instant = false;
 
 export default async function Home() {
   await connection(); // request-time render: auth() re-encrypts the session cookie with random bytes
-  if (await auth()) redirect("/offices");
+  if (await auth()) redirect("/me");
   return (
     <main className="floor mx-auto my-16 flex w-full max-w-md flex-col gap-6 border-4 border-black p-8">
       <h1 className="text-3xl font-bold">AI 오피스</h1>

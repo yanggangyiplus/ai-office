@@ -17,7 +17,7 @@ export function CreateOfficeForm() {
       onSubmit={async (e) => {
         e.preventDefault();
         const r = await post("/api/offices", { name, githubUsername: github });
-        if (r.ok) router.push(`/offices/${(await r.json()).id}`);
+        if (r.ok) router.push(`/teams/${(await r.json()).id}`);
       }}
     >
       <input className="px-input" placeholder="새 오피스 이름" value={name} onChange={(e) => setName(e.target.value)} required />

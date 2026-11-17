@@ -1,6 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
-import { auth, signIn } from "@/auth";
+import { auth, signIn, signOut } from "@/auth";
 import { db } from "@/db";
 import { createInvite, joinByInvite, requireAdmin, upsertUser } from "@/lib/offices";
 
@@ -8,11 +8,15 @@ import { createInvite, joinByInvite, requireAdmin, upsertUser } from "@/lib/offi
 // encrypt it with crypto.getRandomValues() during render, which breaks prerendering. Values arrive as form fields instead.
 
 export async function googleSignIn() {
-  await signIn("google", { redirectTo: "/offices" });
+  await signIn("google", { redirectTo: "/me" });
 }
 
 export async function testSignIn(form: FormData) {
-  await signIn("test", { name: String(form.get("name") ?? ""), redirectTo: "/offices" });
+  await signIn("test", { name: String(form.get("name") ?? ""), redirectTo: "/me" });
+}
+
+export async function signOutAction() {
+  await signOut({ redirectTo: "/" });
 }
 
 export async function makeInvite(form: FormData) {
