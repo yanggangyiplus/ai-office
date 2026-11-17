@@ -108,6 +108,24 @@ export async function registerMeeting(
   return { meetingId: m.id };
 }
 
+// The create-meeting route takes either a Notion link or a title (a meeting written in the site).
+export function meetingRequest(body: unknown): { kind: "url"; url: string } | { kind: "notes"; title: string } {
+  const b = (typeof body === "object" && body !== null ? body : {}) as { url?: unknown; title?: unknown };
+  if (typeof b.url === "string" && b.url.trim()) return { kind: "url", url: b.url.trim() };
+  if (typeof b.title === "string" && b.title.trim()) return { kind: "notes", title: b.title };
+  throw new ValidationError("send a Notion link or a title");
+}
+
+// Meetings written in the site are summarized from their notes, so they need no Notion token.
+export function makeNotesDeps(): MeetingDeps {
+  return {
+    fetchText: async () => {
+      throw new Error("a notes meeting has no Notion page");
+    },
+    summarize: (text) => summarizeMeeting(anthropicLlm, text),
+  };
+}
+
 export const MAX_TITLE_CHARS = 100;
 export const MAX_NOTES_CHARS = 20_000;
 export const MAX_LINKS = 20;

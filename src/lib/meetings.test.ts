@@ -16,6 +16,7 @@ import {
   createNotesMeeting,
   editTodos,
   makeDeps,
+  meetingRequest,
   officeMembers,
   regenerate,
   registerMeeting,
@@ -137,6 +138,23 @@ describe("notes meetings (written in the site)", () => {
     await saveNotes(db, meetingId, "m1", "내용");
     await confirmMeeting(db, meetingId, "m1");
     await expect(regenerate(db, notesDeps([]), meetingId, "m1")).rejects.toBeInstanceOf(AlreadyConfirmedError);
+  });
+});
+
+describe("meetingRequest (what the create-meeting route receives)", () => {
+  it("reads a Notion link", () => {
+    expect(meetingRequest({ url: "https://notion.so/x" })).toEqual({ kind: "url", url: "https://notion.so/x" });
+  });
+  it("reads a title for a meeting written in the site", () => {
+    expect(meetingRequest({ title: "디자인 리뷰" })).toEqual({ kind: "notes", title: "디자인 리뷰" });
+  });
+  it("prefers the link when both are sent", () => {
+    expect(meetingRequest({ url: "https://notion.so/x", title: "t" }).kind).toBe("url");
+  });
+  it("rejects anything else", () => {
+    for (const body of [{}, null, undefined, "x", { url: 3 }, { title: 3 }, { url: "" }]) {
+      expect(() => meetingRequest(body)).toThrow(ValidationError);
+    }
   });
 });
 

@@ -51,6 +51,16 @@ export async function setStatus(db: Db, officeId: string, userId: string, status
   await logActivity(db, officeId, userId, STATUS_TEXT[status as Status]);
 }
 
+// The route body is `{action: "in" | "out" | "status", status?}`; anything else is a 400.
+export async function applyAttendance(db: Db, officeId: string, userId: string, body: unknown): Promise<void> {
+  const b = (typeof body === "object" && body !== null ? body : {}) as { action?: unknown; status?: unknown };
+  if (b.action === "in") return checkIn(db, officeId, userId);
+  if (b.action === "out") return checkOut(db, officeId, userId);
+  if (b.action === "status") return setStatus(db, officeId, userId, b.status);
+  await requireMember(db, officeId, userId); // non-members get 403 even for a bad request
+  throw new ValidationError("unknown action");
+}
+
 export async function presenceOf(db: Db, officeId: string): Promise<Map<string, { present: boolean; status: Status }>> {
   const rows = await db.select({ userId: members.userId, status: members.status }).from(members).where(eq(members.officeId, officeId));
   const open = await db

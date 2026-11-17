@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { makeTestDb } from "@/db/testdb";
 import type { Db } from "@/db";
 import { recentActivity } from "./activity";
-import { checkIn, checkOut, presenceOf, setStatus } from "./attendance";
+import { applyAttendance, checkIn, checkOut, presenceOf, setStatus } from "./attendance";
 import { ValidationError } from "./errors";
 import { createInvite, createOffice, ForbiddenError, joinByInvite, upsertUser } from "./offices";
 
@@ -50,6 +50,26 @@ describe("attendance", () => {
     await expect(checkOut(db, teamId, "out")).rejects.toBeInstanceOf(ForbiddenError);
     await expect(setStatus(db, teamId, "out", "away")).rejects.toBeInstanceOf(ForbiddenError);
     expect(await recentActivity(db, teamId, "admin")).toHaveLength(0);
+  });
+});
+
+describe("applyAttendance (what the route receives)", () => {
+  it("runs in, status and out", async () => {
+    await applyAttendance(db, teamId, "m1", { action: "in" });
+    expect((await presenceOf(db, teamId)).get("m1")!.present).toBe(true);
+    await applyAttendance(db, teamId, "m1", { action: "status", status: "meal" });
+    expect((await presenceOf(db, teamId)).get("m1")!.status).toBe("meal");
+    await applyAttendance(db, teamId, "m1", { action: "out" });
+    expect((await presenceOf(db, teamId)).get("m1")!.present).toBe(false);
+  });
+  it("rejects an unknown action, a missing body and garbage without changing anything", async () => {
+    for (const body of [{ action: "sleep" }, {}, null, undefined, "in", { action: 3 }]) {
+      await expect(applyAttendance(db, teamId, "m1", body)).rejects.toBeInstanceOf(ValidationError);
+    }
+    expect((await presenceOf(db, teamId)).get("m1")!.present).toBe(false);
+  });
+  it("keeps the non-member rule", async () => {
+    await expect(applyAttendance(db, teamId, "out", { action: "in" })).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
 
