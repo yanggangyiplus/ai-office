@@ -1,5 +1,6 @@
 import type { Db } from "@/db";
 import { NotConnectedError } from "./connections";
+import { demoMode, demoWork } from "./demo";
 import { fetchWork, makeGithub, type GithubLike, type WorkItem } from "./github";
 
 // Loads team work with the viewer's own GitHub token. Never throws: problems come back as a Korean `note`.
@@ -10,6 +11,7 @@ export async function loadWork(
   client: (db: Db, userId: string) => Promise<GithubLike> = makeGithub,
 ): Promise<{ items: WorkItem[]; note: string }> {
   if (!repos.length) return { items: [], note: "관리자가 팀 설정에서 저장소를 등록하면 현황판이 채워집니다." };
+  if (demoMode(process.env)) return { items: demoWork(repos), note: "" }; // dev-only sample data
   try {
     return { items: await fetchWork(await client(db, userId), repos), note: "" };
   } catch (e) {

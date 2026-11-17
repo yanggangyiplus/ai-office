@@ -15,6 +15,8 @@ async function localDb(): Promise<Db> {
   const { migrate } = await import("drizzle-orm/pglite/migrator");
   const d = pgliteDrizzle(new PGlite(), { schema });
   await migrate(d, { migrationsFolder: "./drizzle" });
+  const { demoMode, seedDemo } = await import("@/lib/demo");
+  if (demoMode(process.env)) await seedDemo(d as unknown as Db); // dev-only sample team (SEED_DEMO=1)
   return d as unknown as Db;
 }
 
