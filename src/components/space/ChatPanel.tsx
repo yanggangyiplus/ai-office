@@ -45,7 +45,7 @@ export function ChatPanel({
   }
 
   return (
-    <section className="px flex h-full min-h-72 flex-col gap-2 p-3" aria-label="팀 채팅">
+    <section className="px flex flex-col gap-2 p-3" aria-label="팀 채팅">
       <h2 className="font-bold">채팅</h2>
       <ul className="flex-1 space-y-1 overflow-y-auto text-sm" style={{ maxHeight: 360 }} aria-live="polite">
         {messages.length === 0 && <li>아직 대화가 없어요. 첫 인사를 건네 보세요.</li>}

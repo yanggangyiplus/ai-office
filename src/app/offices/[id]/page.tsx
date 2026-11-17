@@ -46,7 +46,7 @@ export default async function OfficeHome({
 
   return (
     <div className="mx-auto w-full max-w-6xl p-4">
-      <header className="mb-4 flex items-center justify-between text-white">
+      <header className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">{office.name}</h1>
         <nav className="flex gap-3 text-sm">
           <Link href="/me" className="underline">내 공간</Link>
@@ -55,7 +55,7 @@ export default async function OfficeHome({
         </nav>
       </header>
 
-      <div className="floor grid gap-6 border-4 border-black p-6 md:grid-cols-[18rem_1fr]">
+      <div className="floor grid gap-6 border border-[var(--line)] p-6 md:grid-cols-[18rem_1fr]">
         {/* 회의실 */}
         <section className="px flex flex-col gap-3 p-4">
           <h2 className="font-bold">회의실</h2>
@@ -65,14 +65,14 @@ export default async function OfficeHome({
             {list.map((m) => (
               <li key={m.id}>
                 <Link className="underline" href={`/offices/${id}/meetings/${m.id}`}>{m.title}</Link>{" "}
-                <span className="border-2 border-black px-1 text-xs" style={{ background: m.status === "confirmed" ? "var(--done)" : "var(--doing)" }}>
+                <span className="border border-[var(--line)] px-1 text-xs" style={{ background: m.status === "confirmed" ? "var(--done)" : "var(--doing)" }}>
                   {m.status === "confirmed" ? "확정" : "초안"}
                 </span>
               </li>
             ))}
           </ul>
           {isAdmin && (
-            <form action={makeInvite} className="mt-2 border-t-4 border-black pt-3">
+            <form action={makeInvite} className="mt-2 border-t border-[var(--line)] pt-3">
               <input type="hidden" name="officeId" value={id} />
               <button className="px-btn">초대 링크 만들기</button>
               {invite && <p className="mt-2 break-all text-xs">/join/{invite}</p>}
@@ -98,7 +98,7 @@ export default async function OfficeHome({
                 <div className="flex flex-col gap-2 text-sm">
                   {COLS.map((c) => (
                     <div key={c.key}>
-                      <span className="border-2 border-black px-1 text-xs font-bold" style={{ background: c.color }}>
+                      <span className="border border-[var(--line)] px-1 text-xs font-bold" style={{ background: c.color }}>
                         {c.label} {row[c.key].length}
                       </span>
                       <ul className="mt-1 list-inside list-disc">

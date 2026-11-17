@@ -3,6 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/db";
 import { meetings, members, offices, todos, users } from "@/db/schema";
 import { logActivity } from "./activity";
+import { demoMode, demoSummarize } from "./demo";
 import { requireToken } from "./connections";
 import { normalizeRole, suggestAssignees } from "./roles";
 import { TeamSetupError, ValidationError } from "./errors";
@@ -27,6 +28,10 @@ export type TodoInput = {
   role?: string | null;
 };
 
+// The AI summary. In the dev-only demo mode a simple stand-in is used so no key is needed.
+const summarizeText = (text: string) =>
+  demoMode(process.env) ? Promise.resolve(demoSummarize(text)) : summarizeMeeting(anthropicLlm, text);
+
 // Reads with the acting user's own Notion token; the team only supplies the '회의록' parent page.
 export async function makeDeps(db: Db, officeId: string, userId: string): Promise<MeetingDeps> {
   const [o] = await db.select().from(offices).where(eq(offices.id, officeId));
@@ -34,7 +39,7 @@ export async function makeDeps(db: Db, officeId: string, userId: string): Promis
   const client = new Client({ auth: await requireToken(db, userId, "notion") }) as unknown as NotionLike;
   return {
     fetchText: (url) => fetchMeetingText(client, o.notionParentPageId!, url),
-    summarize: (text) => summarizeMeeting(anthropicLlm, text),
+    summarize: summarizeText,
   };
 }
 
@@ -122,7 +127,7 @@ export function makeNotesDeps(): MeetingDeps {
     fetchText: async () => {
       throw new Error("a notes meeting has no Notion page");
     },
-    summarize: (text) => summarizeMeeting(anthropicLlm, text),
+    summarize: summarizeText,
   };
 }
 

@@ -3,7 +3,9 @@ import { eq } from "drizzle-orm";
 import { makeTestDb } from "@/db/testdb";
 import { meetings, members, messages, offices, todos, users } from "@/db/schema";
 import { buildBoard } from "./board";
-import { DEMO_TEAM_NAME, demoMode, demoWork, seedDemo } from "./demo";
+import { recentActivity } from "./activity";
+import { presenceOf } from "./attendance";
+import { DEMO_TEAM_NAME, demoMode, demoSummarize, demoWork, seedDemo } from "./demo";
 
 describe("demoMode (dev-only sample data)", () => {
   it("is off unless SEED_DEMO=1", () => {
@@ -34,11 +36,56 @@ describe("seedDemo", () => {
     expect((await db.select().from(messages)).length).toBeGreaterThan(0);
   });
 
+  it("gives members roles, an office presence mix, a feed and a meeting written in the site", async () => {
+    const db = await makeTestDb();
+    await seedDemo(db);
+    const [team] = await db.select().from(offices).where(eq(offices.name, DEMO_TEAM_NAME));
+    const ms = await db.select().from(members).where(eq(members.officeId, team.id));
+    expect(ms.every((m) => m.roles.length > 0)).toBe(true);
+    expect(ms.some((m) => m.roles.length > 1)).toBe(true);
+    const presence = await presenceOf(db, team.id);
+    const present = [...presence.values()].filter((p) => p.present);
+    expect(present.length).toBeGreaterThan(0);
+    expect(present.length).toBeLessThan(ms.length); // somebody is not at work
+    expect(present.some((p) => p.status !== "working")).toBe(true); // somebody is in a meeting / at lunch
+    expect((await recentActivity(db, team.id, "test:양강이")).length).toBeGreaterThan(3);
+    const mine = (await db.select().from(meetings).where(eq(meetings.officeId, team.id))).find((m) => m.notionPageId === null);
+    expect(mine?.notes.length).toBeGreaterThan(20);
+    expect(mine?.links.length).toBeGreaterThan(0);
+    expect((await db.select().from(todos)).some((t) => t.role)).toBe(true);
+  });
+
   it("is safe to run twice", async () => {
     const db = await makeTestDb();
     await seedDemo(db);
     await seedDemo(db);
     expect(await db.select().from(offices).where(eq(offices.name, DEMO_TEAM_NAME))).toHaveLength(1);
+  });
+});
+
+describe("demoSummarize (a stand-in for the AI so the notes flow can be tried without a key)", () => {
+  const notes = [
+    "10:00 시작",
+    "10:05 로그인 화면은 이번 주 안에 끝내기로 함",
+    "10:10 홍보 문구는 하늘이 맡기로 함",
+    "10:15 디자인 톤은 쿨그레이로 결정",
+  ].join("\n");
+
+  it("turns decision-like lines into decisions and task-like lines into todos", () => {
+    const s = demoSummarize(notes);
+    expect(s.decisions).toContain("디자인 톤은 쿨그레이로 결정");
+    expect(s.todos.map((t) => t.title)).toEqual(["로그인 화면은 이번 주 안에 끝내기로 함", "홍보 문구는 하늘이 맡기로 함"]);
+  });
+  it("finds who was named and guesses a role from the words", () => {
+    const todos = demoSummarize(notes).todos;
+    expect(todos[1]).toMatchObject({ assigneeName: "하늘", role: "마케팅" });
+    expect(todos[0]).toMatchObject({ assigneeName: null, role: "개발" });
+  });
+  it("strips the leading time from lines", () => {
+    expect(demoSummarize("9:30 시연은 금요일로 결정").decisions).toEqual(["시연은 금요일로 결정"]);
+  });
+  it("returns nothing for empty notes", () => {
+    expect(demoSummarize("  \n ")).toEqual({ decisions: [], todos: [] });
   });
 });
 

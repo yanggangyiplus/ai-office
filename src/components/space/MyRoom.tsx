@@ -52,12 +52,12 @@ export function MyRoom({
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4">
-      <header className="flex items-center justify-between text-white">
+      <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{user.name}의 공간</h1>
         <span className="text-sm">방향키/WASD로 걷고 E 키나 클릭으로 사용해요</span>
       </header>
 
-      <div className="floor border-4 border-black p-4">
+      <div className="floor border border-[var(--line)] p-4">
         <SpaceCanvas map={MY_ROOM} scene="room" zoom="fit" self={self} start={start} transport={null} onInteract={open} />
       </div>
 
@@ -82,7 +82,7 @@ export function MyRoom({
               {teams.length === 0 && <p>아직 속한 팀이 없어요. 새 팀을 만들거나 초대 링크로 들어오세요.</p>}
               <ul className="flex flex-col gap-2">
                 {teams.map((t) => (
-                  <li key={t.id} className="flex items-center justify-between border-2 border-black p-2">
+                  <li key={t.id} className="flex items-center justify-between border border-[var(--line)] p-2">
                     <strong>{t.name}</strong>
                     <Link className="px-btn" href={`/teams/${t.id}`}>입장하기</Link>
                   </li>

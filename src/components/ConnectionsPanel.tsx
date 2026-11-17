@@ -41,10 +41,10 @@ function Row({ provider, connected }: { provider: Provider; connected: boolean }
   }
 
   return (
-    <div className="flex flex-col gap-2 border-b-4 border-black pb-4 last:border-b-0">
+    <div className="flex flex-col gap-2 border-b border-[var(--line)] pb-4 last:border-b-0">
       <div className="flex items-center gap-2">
         <strong>{info.label}</strong>
-        <span className="border-2 border-black px-1 text-xs" style={{ background: connected ? "var(--done)" : "var(--doing)" }}>
+        <span className="border border-[var(--line)] px-1 text-xs" style={{ background: connected ? "var(--done)" : "var(--doing)" }}>
           {connected ? "연결됨" : "미연결"}
         </span>
         {connected && (

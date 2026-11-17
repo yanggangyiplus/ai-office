@@ -144,8 +144,14 @@ export function SpaceCanvas(props: Props) {
       people.sort((a, b) => a.foot - b.foot); // lower on screen is drawn later, in front
       for (const q of people) {
         drawPerson(ctx, q.id, q.x, q.foot, q.dir, q.frame, q.me);
-        roleTags(ctx, p.rolesByUser?.[q.userId] ?? [], q.x, q.foot - 23 - 15 - 13);
-        nameTag(ctx, q.name, q.x, q.foot);
+        // Sitting at their own desk the desk plate already shows who this is, so skip the tags above the head.
+        const desk = p.owners?.find((o) => o.userId === q.userId)?.desk;
+        const seat = desk != null ? map.seats[desk] : undefined;
+        const atOwnDesk = !!seat && Math.hypot(q.x - seat.x, q.foot - FOOT - seat.y) < 28;
+        if (!atOwnDesk) {
+          roleTags(ctx, p.rolesByUser?.[q.userId] ?? [], q.x, q.foot - 23 - 15 - 13);
+          nameTag(ctx, q.name, q.x, q.foot);
+        }
         const text = p.bubbles?.[q.userId];
         if (text) drawBubble(ctx, text, q.x, q.foot);
         if (q.me) {

@@ -1,57 +1,71 @@
 @import "tailwindcss";
 
+/* Cool grey office: soft grey page, lighter cards, one blue accent. */
 :root {
-  --wall: #2b2d42;
-  --floor-a: #d9b98a;
-  --floor-b: #cfae7e;
-  --ink: #1d1b2e;
-  --paper: #fff8e7;
-  --accent: #ef476f;
-  --doing: #ffd166;
-  --next: #8ecae6;
-  --done: #95d5b2;
+  --bg: #eef1f5;
+  --panel: #f7f8fa;
+  --line: #d9dee5;
+  --ink: #2b3340;
+  --sub: #6b7686;
+  --accent: #4a7bd0;
+  --accent-ink: #3a66b3;
+  --doing: #f3e6bd;
+  --next: #d3e2f6;
+  --done: #d3eadd;
 }
 
 body {
-  background: var(--wall);
+  background: var(--bg);
   color: var(--ink);
-  font-family: "Galmuri11", "Galmuri9", ui-monospace, monospace;
-  image-rendering: pixelated;
+  font-family: -apple-system, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ZEP-style top-down floor: 32px checker tiles */
+/* A page-sized card (login, settings, meeting detail ...). */
 .floor {
-  background-color: var(--floor-a);
-  background-image:
-    linear-gradient(45deg, var(--floor-b) 25%, transparent 25%, transparent 75%, var(--floor-b) 75%),
-    linear-gradient(45deg, var(--floor-b) 25%, transparent 25%, transparent 75%, var(--floor-b) 75%);
-  background-size: 64px 64px;
-  background-position: 0 0, 32px 32px;
+  background: var(--panel);
+  border-radius: 10px;
 }
 
-/* hard-edged pixel panel: no radius, offset shadow */
+/* A card. (The class name is historical; it is no longer pixel styled.) */
 .px {
-  color: var(--ink); /* panels sit inside white-text containers */
-  background: var(--paper);
-  border: 4px solid var(--ink);
-  box-shadow: 4px 4px 0 var(--ink);
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(20, 30, 50, 0.04);
 }
 
 .px-btn {
   background: var(--accent);
   color: #fff;
-  border: 3px solid var(--ink);
-  box-shadow: 3px 3px 0 var(--ink);
+  border: 1px solid var(--accent-ink);
+  border-radius: 8px;
   padding: 0.4rem 0.9rem;
-  font-weight: 700;
+  font-weight: 600;
+  font-size: 0.875rem;
   cursor: pointer;
 }
-.px-btn:active { transform: translate(3px, 3px); box-shadow: none; }
+.px-btn:hover { filter: brightness(1.06); }
+.px-btn:active { transform: translateY(1px); }
 .px-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .px-input {
   background: #fff;
-  border: 3px solid var(--ink);
-  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
   width: 100%;
+  font-size: 0.875rem;
+}
+.px-input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); border-color: var(--accent); }
+
+.chip {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--sub);
 }

@@ -11,7 +11,7 @@ export default async function Join({ params }: { params: Promise<{ code: string 
   if (!(await auth())) redirect("/");
 
   return (
-    <main className="floor mx-auto my-16 flex w-full max-w-sm flex-col gap-4 border-4 border-black p-8">
+    <main className="floor mx-auto my-16 flex w-full max-w-sm flex-col gap-4 border border-[var(--line)] p-8">
       <form action={joinOffice} className="px flex flex-col gap-3 p-4">
         <input type="hidden" name="code" value={code} />
         <label className="font-bold">GitHub 사용자명</label>

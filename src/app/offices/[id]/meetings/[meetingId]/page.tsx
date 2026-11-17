@@ -26,7 +26,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
   const confirmed = m.status === "confirmed";
 
   return (
-    <main className="floor mx-auto my-8 flex w-full max-w-3xl flex-col gap-6 border-4 border-black p-6">
+    <main className="floor mx-auto my-8 flex w-full max-w-3xl flex-col gap-6 border border-[var(--line)] p-6">
       <Link href={`/offices/${id}`} className="underline">← 오피스로</Link>
       <h1 className="text-2xl font-bold">
         {m.title} <span className="text-base">({confirmed ? "확정" : "초안 — 확인 후 확정하세요"})</span>

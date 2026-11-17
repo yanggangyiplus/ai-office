@@ -5,7 +5,7 @@ import { STATION_COLS, STATION_ROWS, TEAM_MAP, MY_ROOM, TILE } from "./map";
 // Everything here is drawn from the same tile numbers as map.ts, so what you see is what blocks you.
 
 export type DeskState = "off" | Status;
-export type DeskOwner = { desk: number; name: string; roles: string[]; me: boolean; state: DeskState };
+export type DeskOwner = { desk: number; userId: string; name: string; roles: string[]; me: boolean; state: DeskState };
 export type TeamSceneOpts = { owners: DeskOwner[]; teamPercent: number; meetingText: string };
 
 const FLOOR = "#e8ebf0";
