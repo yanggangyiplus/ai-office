@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { makeTestDb } from "@/db/testdb";
-import { todos } from "@/db/schema";
+import { offices, todos } from "@/db/schema";
+import { recentActivity } from "./activity";
 import type { Db } from "@/db";
 import { GithubPermissionError, createIssuesForTodos, fetchWork, makeGithub, type GithubLike } from "./github";
 import { NotConnectedError, saveConnection } from "./connections";
@@ -95,6 +96,18 @@ describe("personal github token", () => {
       issues: { create: async () => { throw Object.assign(new Error("not found"), { status: 404 }); }, listForRepo: async () => ({ data: [] }) },
     } as unknown as Partial<GithubLike>);
     await expect(createIssuesForTodos(db, hidden, meetingId, await todoIds())).rejects.toBeInstanceOf(GithubPermissionError);
+  });
+});
+
+describe("issue creation in the activity feed", () => {
+  it("logs how many issues the person created, and nothing when none were created", async () => {
+    await confirmMeeting(db, meetingId, "admin");
+    const ids = await todoIds();
+    await createIssuesForTodos(db, gh(), meetingId, ids, "admin");
+    await createIssuesForTodos(db, gh(), meetingId, ids, "admin"); // already created: nothing new
+    const [office] = await db.select().from(offices);
+    const feed = (await recentActivity(db, office.id, "admin")).map((f) => f.text).filter((t) => t.includes("이슈"));
+    expect(feed).toEqual(["이슈 1개를 만들었어요"]);
   });
 });
 

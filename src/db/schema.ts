@@ -22,6 +22,8 @@ export const members = pgTable(
     officeId: uuid("office_id").notNull().references(() => offices.id),
     userId: text("user_id").notNull().references(() => users.id),
     joinedAt: timestamp("joined_at").notNull().defaultNow(), // desk order in the team space
+    roles: text("roles").array().notNull().default([]), // PO, 디자인, 개발 ... (up to 5)
+    status: text("status", { enum: ["working", "meeting", "away", "meal"] }).notNull().default("working"),
   },
   (t) => [primaryKey({ columns: [t.officeId, t.userId] })],
 );
@@ -45,10 +47,12 @@ export const invites = pgTable("invites", {
 export const meetings = pgTable("meetings", {
   id: uuid("id").primaryKey().defaultRandom(),
   officeId: uuid("office_id").notNull().references(() => offices.id),
-  notionPageId: text("notion_page_id").notNull(),
+  notionPageId: text("notion_page_id"), // null for meetings written in the site
   title: text("title").notNull(),
   status: text("status", { enum: ["draft", "confirmed"] }).notNull().default("draft"),
   summary: jsonb("summary").$type<{ decisions: string[] }>().notNull(),
+  notes: text("notes").notNull().default(""),
+  links: jsonb("links").$type<{ title: string; url: string }[]>().notNull().default([]),
   createdBy: text("created_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -61,6 +65,26 @@ export const todos = pgTable("todos", {
   repo: text("repo").notNull(),
   description: text("description"),
   issueUrl: text("issue_url"),
+  role: text("role"), // which role this work belongs to (used to suggest an assignee)
+});
+
+// One row per check-in; checkedOutAt stays null while the person is at work.
+export const attendance = pgTable("attendance", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  officeId: uuid("office_id").notNull().references(() => offices.id),
+  userId: text("user_id").notNull().references(() => users.id),
+  checkedInAt: timestamp("checked_in_at").notNull().defaultNow(),
+  checkedOutAt: timestamp("checked_out_at"),
+});
+
+// Team activity feed; the sentence is built when it is written (the name is added on screen).
+export const activity = pgTable("activity", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  seq: serial("seq").notNull(),
+  officeId: uuid("office_id").notNull().references(() => offices.id),
+  userId: text("user_id").notNull().references(() => users.id),
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 // Team chat history. `seq` gives a stable order even when two messages share a timestamp.

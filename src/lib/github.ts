@@ -2,6 +2,7 @@ import { Octokit } from "@octokit/rest";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { Db } from "@/db";
 import { meetings, offices, todos, users } from "@/db/schema";
+import { logActivity } from "./activity";
 import { requireToken } from "./connections";
 
 // The Octokit calls we use, so tests can pass a fake.
@@ -58,6 +59,7 @@ export async function createIssuesForTodos(
   gh: GithubLike,
   meetingId: string,
   todoIds: string[],
+  actorId?: string, // who pressed the button, for the activity feed
 ): Promise<{ todoId: string; url: string }[]> {
   const [m] = await db.select().from(meetings).where(eq(meetings.id, meetingId));
   if (!m || m.status !== "confirmed") throw new Error("meeting is not confirmed");
@@ -96,6 +98,7 @@ export async function createIssuesForTodos(
       throw e;
     }
   }
+  if (actorId && out.length) await logActivity(db, m.officeId, actorId, `이슈 ${out.length}개를 만들었어요`);
   return out;
 }
 

@@ -11,6 +11,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   return handle(async (userId) => {
     const [m] = await db.select({ officeId: meetings.officeId }).from(meetings).where(eq(meetings.id, id));
     if (!m || !(await isMember(db, m.officeId, userId))) throw new ForbiddenError("members only");
-    return createIssuesForTodos(db, await makeGithub(db, userId), id, todoIds);
+    return createIssuesForTodos(db, await makeGithub(db, userId), id, todoIds, userId);
   });
 }

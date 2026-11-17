@@ -3,18 +3,23 @@ import { eq } from "drizzle-orm";
 import { makeTestDb } from "@/db/testdb";
 import { meetings, todos } from "@/db/schema";
 import type { Db } from "@/db";
-import { createInvite, createOffice, joinByInvite, removeMember, saveSettings, upsertUser } from "./offices";
+import { ForbiddenError, createInvite, createOffice, joinByInvite, removeMember, saveSettings, upsertUser } from "./offices";
+import { recentActivity } from "./activity";
+import { setRoles } from "./roles";
 import { NotionLinkError } from "./notion";
 import { NotConnectedError, saveConnection } from "./connections";
-import { TeamSetupError } from "./errors";
+import { TeamSetupError, ValidationError } from "./errors";
 import {
   AlreadyConfirmedError,
+  addLink,
   confirmMeeting,
+  createNotesMeeting,
   editTodos,
   makeDeps,
   officeMembers,
   regenerate,
   registerMeeting,
+  saveNotes,
   type MeetingDeps,
 } from "./meetings";
 
@@ -73,6 +78,114 @@ describe("officeMembers", () => {
     const ms = await officeMembers(db, officeId);
     expect(ms.map((m) => m.userId).sort()).toEqual(["admin", "m1"]);
     for (const m of ms) expect(m.joinedAt).toBeInstanceOf(Date);
+  });
+});
+
+describe("notes meetings (written in the site)", () => {
+  const notesDeps = (seen: string[]): MeetingDeps => ({
+    fetchText: async () => { throw new Error("must not read Notion for a notes meeting"); },
+    summarize: async (text) => {
+      seen.push(text);
+      return { decisions: ["메모에서 나온 결정"], todos: [{ title: "메모에서 나온 할 일", assigneeName: "민수" }] };
+    },
+  });
+
+  it("lets a member start a notes meeting that has no Notion page", async () => {
+    const { meetingId } = await createNotesMeeting(db, officeId, "m1", "  디자인 리뷰  ");
+    const [m] = await db.select().from(meetings).where(eq(meetings.id, meetingId));
+    expect(m).toMatchObject({ title: "디자인 리뷰", status: "draft", notionPageId: null, notes: "" });
+    expect(m.links).toEqual([]);
+  });
+
+  it("refuses non-members and empty or very long titles", async () => {
+    await expect(createNotesMeeting(db, officeId, "out", "x")).rejects.toThrow();
+    await expect(createNotesMeeting(db, officeId, "m1", "   ")).rejects.toBeInstanceOf(ValidationError);
+    await expect(createNotesMeeting(db, officeId, "m1", "가".repeat(101))).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("saves notes while the meeting is a draft, and refuses after it is confirmed", async () => {
+    const { meetingId } = await createNotesMeeting(db, officeId, "m1", "회의");
+    await saveNotes(db, meetingId, "m1", "10:02 목표 확인");
+    expect((await db.select().from(meetings).where(eq(meetings.id, meetingId)))[0].notes).toBe("10:02 목표 확인");
+    await confirmMeeting(db, meetingId, "admin");
+    await expect(saveNotes(db, meetingId, "m1", "너무 늦은 메모")).rejects.toBeInstanceOf(AlreadyConfirmedError);
+  });
+
+  it("refuses notes from non-members and notes over the limit", async () => {
+    const { meetingId } = await createNotesMeeting(db, officeId, "m1", "회의");
+    await expect(saveNotes(db, meetingId, "out", "x")).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(saveNotes(db, meetingId, "m1", "가".repeat(20_001))).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("turns the notes into decisions and todos without touching Notion", async () => {
+    const { meetingId } = await createNotesMeeting(db, officeId, "m1", "회의");
+    await saveNotes(db, meetingId, "m1", "오늘은 시연 준비를 하기로 했다");
+    const seen: string[] = [];
+    await regenerate(db, notesDeps(seen), meetingId, "m1");
+    expect(seen).toEqual(["오늘은 시연 준비를 하기로 했다"]);
+    expect((await db.select().from(meetings).where(eq(meetings.id, meetingId)))[0].summary.decisions).toEqual(["메모에서 나온 결정"]);
+    expect((await todosOf(meetingId))[0]).toMatchObject({ title: "메모에서 나온 할 일", assigneeUserId: "m1" });
+  });
+
+  it("asks for notes first when there is nothing to summarize", async () => {
+    const { meetingId } = await createNotesMeeting(db, officeId, "m1", "회의");
+    await expect(regenerate(db, notesDeps([]), meetingId, "m1")).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("does not regenerate a confirmed notes meeting", async () => {
+    const { meetingId } = await createNotesMeeting(db, officeId, "m1", "회의");
+    await saveNotes(db, meetingId, "m1", "내용");
+    await confirmMeeting(db, meetingId, "m1");
+    await expect(regenerate(db, notesDeps([]), meetingId, "m1")).rejects.toBeInstanceOf(AlreadyConfirmedError);
+  });
+});
+
+describe("meeting links", () => {
+  it("adds http and https links, newest last", async () => {
+    const { meetingId } = await createNotesMeeting(db, officeId, "m1", "회의");
+    await addLink(db, meetingId, "m1", { title: "Figma 시안", url: "https://figma.com/file/abc" });
+    await addLink(db, meetingId, "m1", { title: "", url: "http://example.com/doc" });
+    const links = (await db.select().from(meetings).where(eq(meetings.id, meetingId)))[0].links;
+    expect(links).toEqual([
+      { title: "Figma 시안", url: "https://figma.com/file/abc" },
+      { title: "example.com", url: "http://example.com/doc" },
+    ]);
+  });
+
+  it("rejects javascript:, data: and malformed links", async () => {
+    const { meetingId } = await createNotesMeeting(db, officeId, "m1", "회의");
+    for (const url of ["javascript:alert(1)", "data:text/html,x", "not a url", ""]) {
+      await expect(addLink(db, meetingId, "m1", { title: "x", url })).rejects.toBeInstanceOf(ValidationError);
+    }
+    expect((await db.select().from(meetings).where(eq(meetings.id, meetingId)))[0].links).toEqual([]);
+  });
+
+  it("refuses non-members and a 21st link", async () => {
+    const { meetingId } = await createNotesMeeting(db, officeId, "m1", "회의");
+    await expect(addLink(db, meetingId, "out", { title: "x", url: "https://a.com" })).rejects.toBeInstanceOf(ForbiddenError);
+    for (let i = 0; i < 20; i++) await addLink(db, meetingId, "m1", { title: `l${i}`, url: `https://a.com/${i}` });
+    await expect(addLink(db, meetingId, "m1", { title: "넘침", url: "https://a.com/x" })).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe("activity from meetings", () => {
+  it("writes feed items when a meeting is uploaded, started from notes, and confirmed", async () => {
+    const { meetingId } = await registerMeeting(db, deps(), officeId, "m1", "https://notion.so/x");
+    await createNotesMeeting(db, officeId, "m1", "메모 회의");
+    await confirmMeeting(db, meetingId, "admin");
+    const texts = (await recentActivity(db, officeId, "m1")).map((f) => f.text);
+    expect(texts.some((t) => t.includes("회의록을 올렸어요") && t.includes("주간 회의"))).toBe(true);
+    expect(texts.some((t) => t.includes("새 회의 기록") && t.includes("메모 회의"))).toBe(true);
+    expect(texts.some((t) => t.includes("회의를 확정했어요") && t.includes("주간 회의"))).toBe(true);
+  });
+});
+
+describe("officeMembers roles and status", () => {
+  it("returns each member's roles and status", async () => {
+    await setRoles(db, officeId, "m1", "m1", ["개발"]);
+    const m1 = (await officeMembers(db, officeId)).find((m) => m.userId === "m1")!;
+    expect(m1.roles).toEqual(["개발"]);
+    expect(m1.status).toBe("working");
   });
 });
 
