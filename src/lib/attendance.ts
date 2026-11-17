@@ -27,17 +27,21 @@ const openRow = (db: Db, officeId: string, userId: string) =>
 
 export async function checkIn(db: Db, officeId: string, userId: string): Promise<void> {
   await requireMember(db, officeId, userId);
-  if ((await openRow(db, officeId, userId)).length) return; // already at work
-  await db.insert(attendance).values({ officeId, userId });
+  // the unique open-row index makes a racing second check-in insert nothing
+  const inserted = await db.insert(attendance).values({ officeId, userId }).onConflictDoNothing().returning({ id: attendance.id });
+  if (!inserted.length) return; // already at work
   await db.update(members).set({ status: "working" }).where(and(eq(members.officeId, officeId), eq(members.userId, userId)));
   await logActivity(db, officeId, userId, "출근했어요");
 }
 
 export async function checkOut(db: Db, officeId: string, userId: string): Promise<void> {
   await requireMember(db, officeId, userId);
-  const open = await openRow(db, officeId, userId);
-  if (!open.length) return;
-  await db.update(attendance).set({ checkedOutAt: new Date() }).where(eq(attendance.id, open[0].id));
+  const closed = await db
+    .update(attendance)
+    .set({ checkedOutAt: new Date() })
+    .where(and(eq(attendance.officeId, officeId), eq(attendance.userId, userId), isNull(attendance.checkedOutAt)))
+    .returning({ id: attendance.id });
+  if (!closed.length) return;
   await db.update(members).set({ status: "working" }).where(and(eq(members.officeId, officeId), eq(members.userId, userId)));
   await logActivity(db, officeId, userId, "퇴근했어요");
 }
@@ -47,6 +51,8 @@ export async function setStatus(db: Db, officeId: string, userId: string, status
   await requireMember(db, officeId, userId);
   if (typeof status !== "string" || !(STATUSES as readonly string[]).includes(status)) throw new ValidationError("unknown status");
   if (!(await openRow(db, officeId, userId)).length) throw new ValidationError("check in first");
+  const [cur] = await db.select({ status: members.status }).from(members).where(and(eq(members.officeId, officeId), eq(members.userId, userId)));
+  if (cur?.status === status) return; // nothing changed, nothing to announce
   await db.update(members).set({ status: status as Status }).where(and(eq(members.officeId, officeId), eq(members.userId, userId)));
   await logActivity(db, officeId, userId, STATUS_TEXT[status as Status]);
 }

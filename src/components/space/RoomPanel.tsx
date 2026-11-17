@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MeetingLinkForm } from "@/components/Forms";
 import { RoleTag } from "./SideCards";
 import type { MeetingView } from "./types";
@@ -90,6 +90,12 @@ function MeetingDetail({ meeting: m, teamId, tab, setTab }: { meeting: MeetingVi
   const [linkUrl, setLinkUrl] = useState("");
   const locked = m.status === "confirmed" || m.fromNotion;
   useEffect(() => setNotes(m.notes), [m.notes]);
+  // Typed-but-unsaved notes are saved when leaving the textarea or closing the meeting, so they are not lost.
+  const latest = useRef({ notes, dirty: false });
+  latest.current = { notes, dirty: !saved && notes !== m.notes };
+  useEffect(() => () => {
+    if (!locked && latest.current.dirty) void send(`/api/meetings/${m.id}/notes`, "PUT", { notes: latest.current.notes });
+  }, [m.id, locked]);
 
   async function saveNotes(): Promise<boolean> {
     setMsg("");
@@ -166,7 +172,7 @@ function MeetingDetail({ meeting: m, teamId, tab, setTab }: { meeting: MeetingVi
           ) : (
             <>
               <label className="text-xs font-semibold text-[var(--sub)]" htmlFor={`notes-${m.id}`}>회의 중 메모 (직접 기록)</label>
-              <textarea id={`notes-${m.id}`} className="px-input mt-1 min-h-48 leading-7" readOnly={locked} maxLength={20000} value={notes} placeholder={"예)\n10:02 목표: 금요일 시연\n10:05 디자인 톤은 쿨그레이로"} onChange={(e) => { setNotes(e.target.value); setSaved(false); }} />
+              <textarea id={`notes-${m.id}`} className="px-input mt-1 min-h-48 leading-7" readOnly={locked} maxLength={20000} value={notes} placeholder={"예)\n10:02 목표: 금요일 시연\n10:05 디자인 톤은 쿨그레이로"} onChange={(e) => { setNotes(e.target.value); setSaved(false); }} onBlur={() => { if (!locked && !saved && notes !== m.notes) void saveNotes(); }} />
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {!locked && <button className="px-btn" disabled={busy || !notes.trim()} onClick={summarize}>{busy ? "정리하는 중..." : "AI로 정리하기"}</button>}
                 {!locked && <button className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm" disabled={busy} onClick={saveNotes}>저장</button>}

@@ -1,6 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PRESET_ROLES } from "@/lib/role-meta";
+import { todoPayload, type Todo } from "@/lib/todo-payload";
 import { PostButton } from "./PostButton";
 
 async function post(url: string, body: unknown) {
@@ -100,9 +102,7 @@ export function SettingsForm({ officeId }: { officeId: string }) {
   );
 }
 
-type Todo = { id: string; title: string; assigneeUserId: string | null; repo: string; description: string | null; issueUrl: string | null };
-
-const snapshot = (rows: Todo[]) => JSON.stringify(rows.map(({ title, assigneeUserId, repo }) => [title, assigneeUserId, repo]));
+const snapshot = (rows: Todo[]) => JSON.stringify(rows.map(({ title, assigneeUserId, repo, role }) => [title, assigneeUserId, repo, role]));
 
 export function TodoEditor({
   meetingId,
@@ -146,6 +146,11 @@ export function TodoEditor({
                 <option key={m.userId} value={m.userId}>{m.name}</option>
               ))}
             </select>
+            <select className="px-input" aria-label="역할" value={t.role ?? ""} disabled={!!t.issueUrl} onChange={(e) => set(i, { role: e.target.value || null })}>
+              {[...new Set(["", t.role ?? "", ...PRESET_ROLES])].map((r) => (
+                <option key={r} value={r}>{r || "역할 미정"}</option>
+              ))}
+            </select>
             <select className="px-input" value={t.repo} disabled={!!t.issueUrl} onChange={(e) => set(i, { repo: e.target.value })}>
               {[...new Set(["", t.repo, ...repos])].map((r) => (
                 <option key={r} value={r}>{r || "저장소 미정"}</option>
@@ -158,7 +163,7 @@ export function TodoEditor({
       ))}
 
       <div className="flex flex-wrap items-start gap-3">
-        <button className="px-btn" onClick={() => setRows([...rows, { id: crypto.randomUUID(), title: "", assigneeUserId: null, repo: repos[0] ?? "", description: null, issueUrl: null }])}>
+        <button className="px-btn" onClick={() => setRows([...rows, { id: crypto.randomUUID(), title: "", assigneeUserId: null, repo: repos[0] ?? "", description: null, issueUrl: null, role: null }])}>
           + 할 일 추가
         </button>
         <button
@@ -167,7 +172,7 @@ export function TodoEditor({
           onClick={async () => {
             setSaveError("");
             const r = await post(`/api/meetings/${meetingId}/todos`, {
-              todos: rows.filter((t) => !t.issueUrl && t.title.trim()).map(({ title, assigneeUserId, repo, description }) => ({ title, assigneeUserId, repo, description: description ?? undefined })),
+              todos: todoPayload(rows),
             });
             if (r.ok) router.refresh();
             else setSaveError(r.status === 400 ? "저장소나 담당자가 이 오피스에 없는 값입니다." : "저장하지 못했습니다.");

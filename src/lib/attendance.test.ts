@@ -38,6 +38,20 @@ describe("attendance", () => {
     expect(feed.filter((f) => f.text.includes("출근"))).toHaveLength(1);
   });
 
+  it("two simultaneous check-ins leave one open row, so one check-out is enough", async () => {
+    await Promise.all([checkIn(db, teamId, "m1"), checkIn(db, teamId, "m1")]);
+    await checkOut(db, teamId, "m1");
+    expect((await presenceOf(db, teamId)).get("m1")!.present).toBe(false);
+  });
+
+  it("setting the same status again is not logged twice", async () => {
+    await checkIn(db, teamId, "m1");
+    await setStatus(db, teamId, "m1", "meal");
+    await setStatus(db, teamId, "m1", "meal");
+    const feed = await recentActivity(db, teamId, "m1");
+    expect(feed.filter((f) => f.text.includes("식사"))).toHaveLength(1);
+  });
+
   it("can check in again the next time after checking out", async () => {
     await checkIn(db, teamId, "m1");
     await checkOut(db, teamId, "m1");

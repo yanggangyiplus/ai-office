@@ -154,7 +154,9 @@ export async function saveNotes(db: Db, meetingId: string, userId: string, notes
   if (m.status === "confirmed") throw new AlreadyConfirmedError();
   if (typeof notes !== "string") throw new ValidationError("notes must be text");
   if (notes.length > MAX_NOTES_CHARS) throw new ValidationError(`notes are longer than ${MAX_NOTES_CHARS} characters`);
-  await db.update(meetings).set({ notes }).where(eq(meetings.id, meetingId));
+  // The status check is in the write itself, so a confirm that lands in between still wins.
+  const saved = await db.update(meetings).set({ notes }).where(and(eq(meetings.id, meetingId), eq(meetings.status, "draft"))).returning({ id: meetings.id });
+  if (!saved.length) throw new AlreadyConfirmedError();
 }
 
 // Only web links; javascript: and data: links would run in the viewer's browser.

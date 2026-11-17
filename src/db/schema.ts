@@ -1,4 +1,5 @@
-import { jsonb, pgTable, primaryKey, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { jsonb, pgTable, primaryKey, serial, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // Google sub
@@ -75,7 +76,10 @@ export const attendance = pgTable("attendance", {
   userId: text("user_id").notNull().references(() => users.id),
   checkedInAt: timestamp("checked_in_at").notNull().defaultNow(),
   checkedOutAt: timestamp("checked_out_at"),
-});
+}, (t) => [
+  // at most one open (not checked out) row per person per team, even when two check-ins race
+  uniqueIndex("attendance_one_open").on(t.officeId, t.userId).where(sql`${t.checkedOutAt} is null`),
+]);
 
 // Team activity feed; the sentence is built when it is written (the name is added on screen).
 export const activity = pgTable("activity", {
