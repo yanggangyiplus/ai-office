@@ -6,6 +6,7 @@ import type { Db } from "@/db";
 import { createInvite, createOffice, joinByInvite, removeMember, saveSettings, upsertUser } from "./offices";
 import { NotionLinkError } from "./notion";
 import { NotConnectedError, saveConnection } from "./connections";
+import { TeamSetupError } from "./errors";
 import {
   AlreadyConfirmedError,
   confirmMeeting,
@@ -91,9 +92,11 @@ describe("makeDeps (personal notion token)", () => {
     expect(typeof d.summarize).toBe("function");
   });
 
-  it("explains that the team has no Notion parent page yet", async () => {
+  it("reports a team that has no Notion parent page yet as a team setup problem, not a crash", async () => {
     await saveConnection(db, "m1", "notion", "secret_x");
-    await expect(makeDeps(db, officeId, "m1")).rejects.toThrow(/notion/);
+    const err = await makeDeps(db, officeId, "m1").catch((e) => e);
+    expect(err).toBeInstanceOf(TeamSetupError);
+    expect(err.what).toBe("notion");
   });
 });
 

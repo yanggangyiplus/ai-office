@@ -1,6 +1,11 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
-const key = () => Buffer.from(process.env.TOKEN_ENCRYPTION_KEY ?? "", "base64");
+// Fails closed with a message that says what to fix, instead of an opaque "Invalid key length".
+function key(): Buffer {
+  const k = Buffer.from(process.env.TOKEN_ENCRYPTION_KEY ?? "", "base64");
+  if (k.length !== 32) throw new Error("TOKEN_ENCRYPTION_KEY must be 32 bytes, base64 encoded (openssl rand -base64 32)");
+  return k;
+}
 
 // Layout: iv(12) | authTag(16) | ciphertext, base64.
 export function encrypt(plain: string): string {

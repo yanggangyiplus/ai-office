@@ -20,7 +20,7 @@ export function CreateOfficeForm() {
         if (r.ok) router.push(`/teams/${(await r.json()).id}`);
       }}
     >
-      <input className="px-input" placeholder="새 오피스 이름" value={name} onChange={(e) => setName(e.target.value)} required />
+      <input className="px-input" placeholder="새 팀 이름" value={name} onChange={(e) => setName(e.target.value)} required />
       <input className="px-input" placeholder="내 GitHub 사용자명 (현황판에 내 일이 보이려면 필요)" value={github} onChange={(e) => setGithub(e.target.value)} />
       <button className="px-btn whitespace-nowrap">만들기</button>
     </form>
@@ -41,9 +41,11 @@ export function MeetingLinkForm({ officeId }: { officeId: string }) {
         const r = await post(`/api/offices/${officeId}/meetings`, { url });
         if (r.ok) return router.push(`/offices/${officeId}/meetings/${(await r.json()).meetingId}`);
         setState("error");
-        const reason = r.status === 422 ? await r.text() : "";
+        const reason = r.status === 422 || r.status === 409 ? await r.text() : "";
         setMsg(
-          r.status === 428
+          reason === "team_setup:notion"
+            ? "먼저 팀 관리자가 팀 설정에서 Notion '회의록' 상위 페이지를 등록해야 해요."
+            : r.status === 428
             ? "먼저 내 공간에서 Notion을 연결하세요. (내 공간의 컴퓨터에서 토큰을 붙여넣으면 됩니다)"
             : reason === "too_long"
             ? "회의록이 너무 깁니다(3만 자 초과). 나눠서 올려 주세요."

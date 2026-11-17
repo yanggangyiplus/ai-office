@@ -3,7 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/db";
 import { meetings, members, offices, todos, users } from "@/db/schema";
 import { requireToken } from "./connections";
-import { ValidationError } from "./errors";
+import { TeamSetupError, ValidationError } from "./errors";
 import { fetchMeetingText, type NotionLike } from "./notion";
 import { isMember, ForbiddenError } from "./offices";
 import { anthropicLlm, matchAssignee, summarizeMeeting, type Summary } from "./summarize";
@@ -27,7 +27,7 @@ export type TodoInput = {
 // Reads with the acting user's own Notion token; the team only supplies the '회의록' parent page.
 export async function makeDeps(db: Db, officeId: string, userId: string): Promise<MeetingDeps> {
   const [o] = await db.select().from(offices).where(eq(offices.id, officeId));
-  if (!o?.notionParentPageId) throw new Error("notion parent page not configured for this team");
+  if (!o?.notionParentPageId) throw new TeamSetupError("notion");
   const client = new Client({ auth: await requireToken(db, userId, "notion") }) as unknown as NotionLike;
   return {
     fetchText: (url) => fetchMeetingText(client, o.notionParentPageId!, url),
