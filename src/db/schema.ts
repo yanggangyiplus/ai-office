@@ -1,4 +1,4 @@
-import { jsonb, pgTable, primaryKey, text, uuid } from "drizzle-orm/pg-core";
+import { jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // Google sub
@@ -40,6 +40,7 @@ export const meetings = pgTable("meetings", {
   status: text("status", { enum: ["draft", "confirmed"] }).notNull().default("draft"),
   summary: jsonb("summary").$type<{ decisions: string[] }>().notNull(),
   createdBy: text("created_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const todos = pgTable("todos", {

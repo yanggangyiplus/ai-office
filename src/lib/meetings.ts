@@ -32,7 +32,7 @@ export async function makeDeps(db: Db, officeId: string): Promise<MeetingDeps> {
   };
 }
 
-async function officeMembers(db: Db, officeId: string) {
+export async function officeMembers(db: Db, officeId: string) {
   const rows = await db
     .select({ userId: users.id, name: users.name, githubUsername: users.githubUsername })
     .from(members)
