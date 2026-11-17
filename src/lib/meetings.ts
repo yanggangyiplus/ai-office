@@ -8,6 +8,7 @@ import { isMember, ForbiddenError } from "./offices";
 import { anthropicLlm, matchAssignee, summarizeMeeting, type Summary } from "./summarize";
 
 export class AlreadyConfirmedError extends Error {}
+export class ValidationError extends Error {}
 
 export type MeetingDeps = {
   fetchText(url: string): Promise<{ pageId: string; title: string; text: string }>;
@@ -91,13 +92,27 @@ export async function regenerate(db: Db, deps: MeetingDeps, meetingId: string, u
   if (m.status === "confirmed") throw new AlreadyConfirmedError();
   const page = await deps.fetchText(`https://www.notion.so/${m.notionPageId}`);
   const summary = await deps.summarize(page.text);
-  await db.delete(todos).where(eq(todos.meetingId, meetingId));
-  await db.update(meetings).set({ summary: { decisions: summary.decisions } }).where(eq(meetings.id, meetingId));
+  // The AI call took seconds; only write if the meeting is still a draft right now.
+  const updated = await db
+    .update(meetings)
+    .set({ summary: { decisions: summary.decisions } })
+    .where(and(eq(meetings.id, meetingId), eq(meetings.status, "draft")))
+    .returning({ id: meetings.id });
+  if (!updated.length) throw new AlreadyConfirmedError();
+  await db.delete(todos).where(and(eq(todos.meetingId, meetingId), isNull(todos.issueUrl)));
   await buildTodos(db, m.officeId, meetingId, summary);
 }
 
 export async function editTodos(db: Db, meetingId: string, userId: string, input: TodoInput[]): Promise<void> {
-  await loadForMember(db, meetingId, userId);
+  const m = await loadForMember(db, meetingId, userId);
+  if (!Array.isArray(input)) throw new ValidationError("todos must be an array");
+  const [o] = await db.select({ repos: offices.repos }).from(offices).where(eq(offices.id, m.officeId));
+  const memberIds = new Set((await officeMembers(db, m.officeId)).map((x) => x.userId));
+  for (const t of input) {
+    if (typeof t?.title !== "string" || !t.title.trim()) throw new ValidationError("todo title required");
+    if (typeof t.repo !== "string" || (t.repo !== "" && !o.repos.includes(t.repo))) throw new ValidationError("repo is not in the office's repo list");
+    if (t.assigneeUserId !== null && !memberIds.has(t.assigneeUserId)) throw new ValidationError("assignee is not an office member");
+  }
   // Todos that already became GitHub issues stay; everything else is replaced.
   await db.delete(todos).where(and(eq(todos.meetingId, meetingId), isNull(todos.issueUrl)));
   if (!input.length) return;

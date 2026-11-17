@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { makeTestDb } from "@/db/testdb";
-import { members, offices } from "@/db/schema";
+import { members, offices, users } from "@/db/schema";
 import type { Db } from "@/db";
 import { decrypt } from "./crypto";
 import {
@@ -9,6 +9,7 @@ import {
   createInvite,
   createOffice,
   joinByInvite,
+  removeMember,
   saveSettings,
   upsertUser,
 } from "./offices";
@@ -31,6 +32,22 @@ describe("offices", () => {
     const [o] = await db.select().from(offices).where(eq(offices.id, id));
     const ms = await db.select().from(members).where(eq(members.officeId, id));
     expect(o.adminId).toBe("admin");
+    expect(ms.map((m) => m.userId)).toEqual(["admin"]);
+  });
+
+  it("records the creator's github username so the admin appears on the board", async () => {
+    await createOffice(db, "admin", "팀", "admin-gh");
+    const [u] = await db.select().from(users).where(eq(users.id, "admin"));
+    expect(u.githubUsername).toBe("admin-gh");
+  });
+
+  it("lets the admin remove a member, but nobody else, and never the admin", async () => {
+    const { id } = await createOffice(db, "admin", "팀");
+    await joinByInvite(db, await createInvite(db, id), "m1", "mgit");
+    await expect(removeMember(db, id, "m1", "admin")).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(removeMember(db, id, "admin", "admin")).rejects.toThrow();
+    await removeMember(db, id, "admin", "m1");
+    const ms = await db.select().from(members).where(eq(members.officeId, id));
     expect(ms.map((m) => m.userId)).toEqual(["admin"]);
   });
 

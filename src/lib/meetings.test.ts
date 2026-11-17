@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { makeTestDb } from "@/db/testdb";
 import { meetings, todos } from "@/db/schema";
 import type { Db } from "@/db";
-import { createInvite, createOffice, joinByInvite, saveSettings, upsertUser } from "./offices";
+import { createInvite, createOffice, joinByInvite, removeMember, saveSettings, upsertUser } from "./offices";
 import { NotionLinkError } from "./notion";
 import {
   AlreadyConfirmedError,
@@ -92,6 +92,49 @@ describe("confirm flow", () => {
     await confirmMeeting(db, meetingId, "m1");
     await editTodos(db, meetingId, "admin", [{ title: "고친 일", assigneeUserId: "admin", repo: "o/r" }]);
     expect((await todosOf(meetingId)).map((t) => t.title)).toEqual(["고친 일"]);
+  });
+
+  it("regenerate does not overwrite a meeting confirmed while the AI was running", async () => {
+    const { meetingId } = await registerMeeting(db, deps(), officeId, "m1", "u");
+    const racing = deps({
+      summarize: async () => {
+        await confirmMeeting(db, meetingId, "admin"); // someone confirms mid-regenerate
+        return { decisions: ["새 결정"], todos: [{ title: "덮어쓰기", assigneeName: null }] };
+      },
+    });
+    await expect(regenerate(db, racing, meetingId, "m1")).rejects.toBeInstanceOf(AlreadyConfirmedError);
+    const [m] = await db.select().from(meetings).where(eq(meetings.id, meetingId));
+    expect(m.summary.decisions).toEqual(["A로 간다"]);
+    expect((await todosOf(meetingId)).map((t) => t.title).sort()).toEqual(["API", "디자인"]);
+  });
+
+  it("editTodos rejects a repo outside the office's list and keeps existing todos", async () => {
+    const { meetingId } = await registerMeeting(db, deps(), officeId, "m1", "u");
+    await expect(
+      editTodos(db, meetingId, "m1", [{ title: "x", assigneeUserId: null, repo: "evil/other" }]),
+    ).rejects.toThrow(/repo/);
+    expect(await todosOf(meetingId)).toHaveLength(2);
+  });
+
+  it("editTodos rejects an assignee who is not an office member and keeps existing todos", async () => {
+    const { meetingId } = await registerMeeting(db, deps(), officeId, "m1", "u");
+    await expect(
+      editTodos(db, meetingId, "m1", [{ title: "x", assigneeUserId: "out", repo: "o/r" }]),
+    ).rejects.toThrow(/assignee/);
+    expect(await todosOf(meetingId)).toHaveLength(2);
+  });
+
+  it("editTodos rejects malformed input before deleting anything", async () => {
+    const { meetingId } = await registerMeeting(db, deps(), officeId, "m1", "u");
+    await expect(editTodos(db, meetingId, "m1", "nope" as never)).rejects.toThrow();
+    await expect(editTodos(db, meetingId, "m1", [{ assigneeUserId: null, repo: "o/r" } as never])).rejects.toThrow();
+    expect(await todosOf(meetingId)).toHaveLength(2);
+  });
+
+  it("removing a member unassigns their todos so the rest can still be edited", async () => {
+    const { meetingId } = await registerMeeting(db, deps(), officeId, "m1", "u");
+    await removeMember(db, officeId, "admin", "m1");
+    expect((await todosOf(meetingId)).every((t) => t.assigneeUserId === null)).toBe(true);
   });
 
   it("editTodos rejects non-members", async () => {

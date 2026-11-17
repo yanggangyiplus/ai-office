@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { AlreadyConfirmedError } from "./meetings";
+import { AlreadyConfirmedError, ValidationError } from "./meetings";
 import { NotionLinkError } from "./notion";
 import { ForbiddenError } from "./offices";
 
@@ -12,6 +12,7 @@ export async function handle(fn: (userId: string) => Promise<unknown>): Promise<
   } catch (e) {
     if (e instanceof ForbiddenError) return new Response("forbidden", { status: 403 });
     if (e instanceof AlreadyConfirmedError) return new Response("already confirmed", { status: 409 });
+    if (e instanceof ValidationError) return new Response(e.message, { status: 400 });
     if (e instanceof NotionLinkError) return new Response(e.reason, { status: 422 });
     throw e;
   }

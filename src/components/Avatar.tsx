@@ -22,7 +22,7 @@ export function Avatar({ id, size = 64 }: { id: string; size?: number }) {
     H: HAIR[h % HAIR.length],
     S: "#f1c27d",
     E: "#1d1b2e",
-    T: SHIRT[(h >> 3) % SHIRT.length],
+    T: SHIRT[(h >>> 3) % SHIRT.length], // >>> keeps the index non-negative; >> could go negative and leave the shirt unpainted (black)
   };
   return (
     <svg width={size} height={size} viewBox="0 0 8 8" shapeRendering="crispEdges" aria-hidden>

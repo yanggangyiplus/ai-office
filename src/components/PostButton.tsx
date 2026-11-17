@@ -3,9 +3,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 const MESSAGES: Record<number, string> = {
+  400: "입력이 올바르지 않습니다. 저장소와 담당자를 확인하세요.",
   403: "권한이 없습니다.",
   409: "이미 확정된 회의입니다.",
-  422: "이 Notion 링크는 사용할 수 없습니다. '회의록' 상위 페이지 아래의 페이지인지 확인하세요.",
 };
 
 // POSTs JSON, then refreshes the page. Shows a plain-language error on failure.
@@ -13,10 +13,14 @@ export function PostButton({
   url,
   body,
   children,
+  disabled,
+  hint,
 }: {
   url: string;
   body?: unknown;
   children: React.ReactNode;
+  disabled?: boolean;
+  hint?: string; // shown when disabled, e.g. why
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -25,7 +29,8 @@ export function PostButton({
     <span>
       <button
         className="px-btn"
-        disabled={busy}
+        disabled={busy || disabled}
+        title={disabled ? hint : undefined}
         onClick={async () => {
           setBusy(true);
           setErr("");

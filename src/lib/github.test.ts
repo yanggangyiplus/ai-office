@@ -63,6 +63,43 @@ describe("createIssuesForTodos", () => {
   });
 });
 
+describe("createIssuesForTodos concurrency", () => {
+  it("creates one issue when two requests race", async () => {
+    await confirmMeeting(db, meetingId, "admin");
+    const ids = await todoIds();
+    const slow = gh({
+      issues: {
+        create: async (a: (typeof created)[number]) => {
+          created.push(a);
+          await new Promise((r) => setTimeout(r, 20));
+          return { data: { html_url: "https://github.com/o/r/issues/1" } };
+        },
+        listForRepo: async () => ({ data: [] }),
+      },
+    } as unknown as Partial<GithubLike>);
+    await Promise.all([createIssuesForTodos(db, slow, meetingId, ids), createIssuesForTodos(db, slow, meetingId, ids)]);
+    expect(created).toHaveLength(1);
+  });
+
+  it("releases the claim when GitHub fails so a retry can create the issue", async () => {
+    await confirmMeeting(db, meetingId, "admin");
+    const ids = await todoIds();
+    const failing = gh({
+      issues: { create: async () => { throw new Error("github down"); }, listForRepo: async () => ({ data: [] }) },
+    } as unknown as Partial<GithubLike>);
+    await expect(createIssuesForTodos(db, failing, meetingId, ids)).rejects.toThrow("github down");
+    await createIssuesForTodos(db, gh(), meetingId, ids);
+    expect(created).toHaveLength(1);
+  });
+
+  it("refuses a todo with no repo set", async () => {
+    await confirmMeeting(db, meetingId, "admin");
+    await db.update(todos).set({ repo: "" }).where(eq(todos.meetingId, meetingId));
+    await expect(createIssuesForTodos(db, gh(), meetingId, await todoIds())).rejects.toThrow(/repo/);
+    expect(created).toHaveLength(0);
+  });
+});
+
 describe("fetchWork", () => {
   it("marks issues with a linked open PR and drops PRs from the issue list", async () => {
     const client = gh({

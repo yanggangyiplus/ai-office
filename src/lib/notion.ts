@@ -1,4 +1,7 @@
 export const MAX_MEETING_CHARS = 30_000;
+const MAX_DEPTH = 5;
+// Notion API error codes that mean "this page is not reachable with our token".
+const UNREACHABLE = new Set(["object_not_found", "unauthorized", "restricted_resource"]);
 
 export class NotionLinkError extends Error {
   constructor(public reason: "not_under_parent" | "not_found" | "too_long") {
@@ -23,13 +26,13 @@ type PageLike = {
   parent: { type: string; page_id?: string };
   properties: Record<string, { type: string; title?: { plain_text: string }[] }>;
 };
-type BlockLike = { type: string } & Record<string, unknown>;
+type BlockLike = { type: string; id?: string; has_children?: boolean } & Record<string, unknown>;
 
 const norm = (id: string) => id.replace(/-/g, "").toLowerCase();
 
 function pageIdFromUrl(url: string): string | null {
-  const m = url.split(/[?#]/)[0].match(/([0-9a-f]{32})\/?$/i);
-  return m ? m[1].toLowerCase() : null;
+  const m = url.split(/[?#]/)[0].match(/([0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12})\/?$/i);
+  return m ? m[1].replace(/-/g, "").toLowerCase() : null;
 }
 
 function blockText(b: BlockLike): string | null {
@@ -49,8 +52,10 @@ export async function fetchMeetingText(
   const get = async (id: string) => {
     try {
       return await client.pages.retrieve({ page_id: id });
-    } catch {
-      throw new NotionLinkError("not_found");
+    } catch (e) {
+      // Only "unreachable" means not_found; rate limits and network errors must surface as real failures.
+      if (UNREACHABLE.has((e as { code?: string }).code ?? "")) throw new NotionLinkError("not_found");
+      throw e;
     }
   };
 
@@ -68,15 +73,25 @@ export async function fetchMeetingText(
   if (!underParent) throw new NotionLinkError("not_under_parent");
 
   const lines: string[] = [];
-  let cursor: string | undefined;
-  do {
-    const r = await client.blocks.children.list({ block_id: pageId, start_cursor: cursor });
-    for (const b of r.results) {
-      const t = blockText(b);
-      if (t) lines.push(t);
-    }
-    cursor = r.has_more && r.next_cursor ? r.next_cursor : undefined;
-  } while (cursor);
+  let size = 0;
+  // Walks a block's children depth-first (sub-bullets, toggles, columns) and enforces the length cap as it goes.
+  const walk = async (blockId: string, depth: number): Promise<void> => {
+    let cursor: string | undefined;
+    do {
+      const r = await client.blocks.children.list({ block_id: blockId, start_cursor: cursor });
+      for (const b of r.results) {
+        const t = blockText(b);
+        if (t) {
+          size += t.length + 1;
+          if (size > MAX_MEETING_CHARS + 1) throw new NotionLinkError("too_long");
+          lines.push(t);
+        }
+        if (b.has_children && typeof b.id === "string" && depth < MAX_DEPTH) await walk(b.id, depth + 1);
+      }
+      cursor = r.has_more && r.next_cursor ? r.next_cursor : undefined;
+    } while (cursor);
+  };
+  await walk(pageId, 0);
 
   const text = lines.join("\n");
   if (text.length > MAX_MEETING_CHARS) throw new NotionLinkError("too_long");

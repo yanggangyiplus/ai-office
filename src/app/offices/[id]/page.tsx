@@ -10,6 +10,7 @@ import { officeMembers } from "@/lib/meetings";
 import { createInvite, isMember } from "@/lib/offices";
 import { Avatar } from "@/components/Avatar";
 import { MeetingLinkForm } from "@/components/Forms";
+import { PostButton } from "@/components/PostButton";
 
 export const instant = false;
 
@@ -57,8 +58,8 @@ export default async function OfficeHome({
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl p-4 text-white">
-      <header className="mb-4 flex items-center justify-between">
+    <div className="mx-auto w-full max-w-6xl p-4">
+      <header className="mb-4 flex items-center justify-between text-white">
         <h1 className="text-2xl font-bold">{office.name}</h1>
         <nav className="flex gap-3 text-sm">
           <Link href="/offices" className="underline">내 오피스</Link>
@@ -99,6 +100,11 @@ export default async function OfficeHome({
                 <div className="mb-2 flex items-center gap-3">
                   <Avatar id={row.member.userId} />
                   <strong>{row.member.name}</strong>
+                  {isAdmin && row.member.userId !== s.user.id && (
+                    <span className="ml-auto text-xs">
+                      <PostButton url={`/api/offices/${id}/members/remove`} body={{ userId: row.member.userId }}>내보내기</PostButton>
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-col gap-2 text-sm">
                   {COLS.map((c) => (

@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/db";
-import { invites, members, offices, users } from "@/db/schema";
+import { invites, meetings, members, offices, todos, users } from "@/db/schema";
 import { encrypt } from "./crypto";
 
 export class ForbiddenError extends Error {}
@@ -10,10 +10,28 @@ export async function upsertUser(db: Db, u: { id: string; email: string; name: s
   await db.insert(users).values(u).onConflictDoUpdate({ target: users.id, set: { email: u.email, name: u.name } });
 }
 
-export async function createOffice(db: Db, userId: string, name: string): Promise<{ id: string }> {
+export async function createOffice(
+  db: Db,
+  userId: string,
+  name: string,
+  githubUsername?: string,
+): Promise<{ id: string }> {
   const [o] = await db.insert(offices).values({ name, adminId: userId }).returning({ id: offices.id });
   await db.insert(members).values({ officeId: o.id, userId });
+  if (githubUsername) await db.update(users).set({ githubUsername }).where(eq(users.id, userId));
   return o;
+}
+
+export async function removeMember(db: Db, officeId: string, adminId: string, targetId: string): Promise<void> {
+  await requireAdmin(db, officeId, adminId);
+  if (targetId === adminId) throw new Error("the admin cannot be removed");
+  await db.delete(members).where(and(eq(members.officeId, officeId), eq(members.userId, targetId)));
+  // Unassign their todos in this office so remaining todos stay editable.
+  const officeMeetings = db.select({ id: meetings.id }).from(meetings).where(eq(meetings.officeId, officeId));
+  await db
+    .update(todos)
+    .set({ assigneeUserId: null })
+    .where(and(eq(todos.assigneeUserId, targetId), inArray(todos.meetingId, officeMeetings)));
 }
 
 export async function createInvite(db: Db, officeId: string): Promise<string> {

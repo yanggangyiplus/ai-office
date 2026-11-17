@@ -6,7 +6,6 @@ import { db } from "@/db";
 import { meetings, offices, todos } from "@/db/schema";
 import { officeMembers } from "@/lib/meetings";
 import { isMember } from "@/lib/offices";
-import { PostButton } from "@/components/PostButton";
 import { TodoEditor } from "@/components/Forms";
 
 export const instant = false;
@@ -23,7 +22,6 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
   const rows = await db.select().from(todos).where(eq(todos.meetingId, meetingId));
   const ms = await officeMembers(db, id);
   const confirmed = m.status === "confirmed";
-  const pending = rows.filter((t) => !t.issueUrl).map((t) => t.id);
 
   return (
     <main className="floor mx-auto my-8 flex w-full max-w-3xl flex-col gap-6 border-4 border-black p-6">
@@ -47,21 +45,13 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
         <TodoEditor
           key={rows.map((r) => r.id).join()}
           meetingId={meetingId}
+          confirmed={confirmed}
           initial={rows}
           members={ms.map((x) => ({ userId: x.userId, name: x.name }))}
           repos={office.repos}
         />
       </section>
 
-      <div className="flex flex-wrap gap-3">
-        {!confirmed && <PostButton url={`/api/meetings/${meetingId}/regenerate`}>AI로 다시 정리</PostButton>}
-        {!confirmed && <PostButton url={`/api/meetings/${meetingId}/confirm`}>확정</PostButton>}
-        {confirmed && pending.length > 0 && (
-          <PostButton url={`/api/meetings/${meetingId}/issues`} body={{ todoIds: pending }}>
-            GitHub 이슈 만들기 ({pending.length})
-          </PostButton>
-        )}
-      </div>
     </main>
   );
 }

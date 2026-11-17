@@ -1,5 +1,5 @@
 import { Octokit } from "@octokit/rest";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { Db } from "@/db";
 import { meetings, offices, todos, users } from "@/db/schema";
 import { decrypt } from "./crypto";
@@ -61,17 +61,32 @@ export async function createIssuesForTodos(
     .leftJoin(users, eq(users.id, todos.assigneeUserId))
     .where(and(eq(todos.meetingId, meetingId), inArray(todos.id, todoIds)));
 
+  const open = rows.filter((r) => !r.todo.issueUrl);
+  const noRepo = open.find((r) => !r.todo.repo);
+  if (noRepo) throw new Error(`repo not set for todo "${noRepo.todo.title}"`);
+
   const out: { todoId: string; url: string }[] = [];
-  for (const { todo, github } of rows) {
-    if (todo.issueUrl) continue; // already created
-    const res = await gh.issues.create({
-      ...split(todo.repo),
-      title: todo.title,
-      body: todo.description ?? undefined,
-      assignees: github ? [github] : undefined,
-    });
-    await db.update(todos).set({ issueUrl: res.data.html_url }).where(eq(todos.id, todo.id));
-    out.push({ todoId: todo.id, url: res.data.html_url });
+  for (const { todo, github } of open) {
+    // Claim atomically so two concurrent requests cannot both create the issue.
+    const claimed = await db
+      .update(todos)
+      .set({ issueUrl: "pending" })
+      .where(and(eq(todos.id, todo.id), isNull(todos.issueUrl)))
+      .returning({ id: todos.id });
+    if (!claimed.length) continue;
+    try {
+      const res = await gh.issues.create({
+        ...split(todo.repo),
+        title: todo.title,
+        body: todo.description ?? undefined,
+        assignees: github ? [github] : undefined,
+      });
+      await db.update(todos).set({ issueUrl: res.data.html_url }).where(eq(todos.id, todo.id));
+      out.push({ todoId: todo.id, url: res.data.html_url });
+    } catch (e) {
+      await db.update(todos).set({ issueUrl: null }).where(eq(todos.id, todo.id));
+      throw e;
+    }
   }
   return out;
 }
