@@ -58,6 +58,9 @@ export const MY_ROOM: SpaceMap = {
   grid: build(28, 18, (rect) => {
     rect(0, 0, 27, 1, "#"); rect(0, 17, 27, 17, "#"); rect(0, 0, 0, 17, "#"); rect(27, 0, 27, 17, "#");
     rect(4, 3, 5, 4, "C"); rect(22, 3, 23, 4, "T"); rect(13, 17, 14, 17, "X");
+    // furniture (drawn in drawRoomScene from the same tiles): bookshelf, side table, sofa + coffee table, cabinet, lamp, shoe rack
+    rect(9, 2, 12, 3, "P"); rect(24, 3, 25, 4, "P"); rect(2, 9, 5, 10, "P"); rect(3, 12, 4, 12, "P");
+    rect(24, 8, 25, 10, "P"); rect(20, 14, 20, 15, "P"); rect(16, 15, 17, 16, "P");
   }),
   seats: [],
 };

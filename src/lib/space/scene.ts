@@ -167,4 +167,31 @@ export function drawRoomScene(ctx: CanvasRenderingContext2D) {
   rect(ctx, 208, 272, 32, 16, "#7a4b2a"); rect(ctx, 208, 272, 32, 2, "#9a6a45"); rect(ctx, 232, 279, 3, 3, "#ffd166"); rect(ctx, 223, 272, 2, 16, "#5e3a20");
   plate(ctx, "문", 224, 258);
   plant(ctx, 40, 224); plant(ctx, 392, 224);
+
+  // bookshelf (tiles 9..12 x 2..3)
+  rect(ctx, 144, 32, 64, 32, "#a98a63"); rect(ctx, 144, 32, 64, 2, "#c4a47a"); rect(ctx, 144, 62, 64, 2, "#8a6d49");
+  for (const sy of [36, 48]) {
+    rect(ctx, 147, sy + 9, 58, 2, "#8a6d49");
+    ["#4a7bd0", "#cf8a4a", "#6f9a86", "#b0728f", "#d8d2c4", "#4a7bd0", "#6f9a86", "#cf8a4a", "#b0728f", "#d8d2c4", "#4a7bd0"].forEach((c, i) =>
+      rect(ctx, 148 + i * 5, sy + (i % 3 === 0 ? 1 : 3), 4, i % 3 === 0 ? 8 : 6, c));
+  }
+  // wall clock above the door side, and a small frame
+  rect(ctx, 234, 8, 14, 14, "#ffffff"); rect(ctx, 234, 8, 14, 2, "#c0c8d1"); rect(ctx, 234, 20, 14, 2, "#c0c8d1"); rect(ctx, 240, 11, 2, 6, "#2b323a"); rect(ctx, 241, 15, 5, 2, "#2b323a");
+  // side table with a coffee mug and a lamp (tiles 24..25 x 3..4)
+  rect(ctx, 384, 52, 30, 28, "#e8d9c0"); rect(ctx, 384, 52, 30, 2, "#f6ecda"); rect(ctx, 384, 78, 30, 2, "#b9a688");
+  rect(ctx, 389, 58, 8, 8, "#ffffff"); rect(ctx, 397, 60, 2, 4, "#ffffff"); rect(ctx, 390, 59, 6, 2, "#8a5a3a"); // mug
+  rect(ctx, 404, 64, 3, 12, "#59636d"); rect(ctx, 400, 54, 11, 10, "#ffe9a8"); // lamp
+  // sofa with cushions + coffee table (tiles 2..5 x 9..10, 3..4 x 12)
+  rect(ctx, 32, 144, 64, 32, "#7d8da3"); rect(ctx, 32, 144, 64, 8, "#96a5b9"); rect(ctx, 32, 144, 6, 32, "#6b7a8f"); rect(ctx, 90, 144, 6, 32, "#6b7a8f");
+  rect(ctx, 42, 156, 20, 12, "#8d9db3"); rect(ctx, 66, 156, 20, 12, "#8d9db3"); rect(ctx, 32, 174, 64, 2, "#5a687b");
+  rect(ctx, 48, 192, 32, 16, "#d6c3a4"); rect(ctx, 48, 192, 32, 2, "#ebdcc0"); rect(ctx, 48, 206, 32, 2, "#a8967a");
+  rect(ctx, 56, 195, 8, 6, "#ffffff"); rect(ctx, 68, 196, 6, 6, "#e6a5a5"); // magazine and cup
+  // filing cabinet (tiles 24..25 x 8..10) with a printer on top is overkill: three drawers
+  rect(ctx, 384, 128, 32, 48, "#b7c0cb"); rect(ctx, 384, 128, 32, 2, "#d3d9e0");
+  for (const dy of [131, 145, 159]) { rect(ctx, 387, dy, 26, 12, "#c9d0d8"); rect(ctx, 396, dy + 4, 8, 3, "#59636d"); }
+  // floor lamp (tile 20 x 14..15)
+  rect(ctx, 323, 242, 10, 4, "#59636d"); rect(ctx, 327, 232, 2, 12, "#59636d"); rect(ctx, 320, 224, 16, 10, "#ffe9a8"); rect(ctx, 320, 224, 16, 2, "#fff4cf");
+  // shoe rack by the door (tiles 16..17 x 15..16)
+  rect(ctx, 256, 240, 32, 32, "#c8b79a"); rect(ctx, 256, 240, 32, 2, "#e0d2b8"); rect(ctx, 256, 255, 32, 2, "#a8967a");
+  rect(ctx, 259, 246, 8, 5, "#2b323a"); rect(ctx, 270, 246, 8, 5, "#cf8a4a"); rect(ctx, 259, 261, 8, 5, "#4a7bd0"); rect(ctx, 270, 261, 8, 5, "#f3f5f8");
 }
