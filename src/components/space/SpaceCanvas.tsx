@@ -7,7 +7,7 @@ import { shouldPublishMove, shouldRefreshPresence } from "@/lib/space/net";
 import type { Position, Self, Transport } from "@/lib/realtime/types";
 
 const SIZE = 32; // drawn size of a character (8x8 sprite x4)
-const NAME: Record<Interactable, string> = { meeting: "회의실", board: "현황판", computer: "컴퓨터", teamboard: "팀 보드", door: "문" };
+const NAME: Record<Interactable, string> = { meeting: "회의실", board: "현황판", computer: "컴퓨터", teamboard: "팀 보드", door: "문", entrance: "입구" };
 const MOVE_KEYS: Record<string, [number, number]> = {
   arrowleft: [-1, 0], a: [-1, 0], arrowright: [1, 0], d: [1, 0], arrowup: [0, -1], w: [0, -1], arrowdown: [0, 1], s: [0, 1],
 };

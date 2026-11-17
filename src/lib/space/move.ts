@@ -1,8 +1,8 @@
 import type { Dir, Position } from "../realtime/types";
 import { isSolid, type SpaceMap } from "./map";
 
-const SPEED = 140; // px per second
-const HALF = 10; // the character's hitbox is 20x20
+const SPEED = 90; // px per second (16px tiles)
+const HALF = 6; // the character's hitbox is 12x12
 const MAX_DT = 100; // ms; a longer gap (tab in background) counts as 100ms so nobody tunnels through a wall
 
 const blocked = (map: SpaceMap, x: number, y: number) =>
