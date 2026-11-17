@@ -1,4 +1,4 @@
-import { jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { jsonb, pgTable, primaryKey, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // Google sub
@@ -61,4 +61,14 @@ export const todos = pgTable("todos", {
   repo: text("repo").notNull(),
   description: text("description"),
   issueUrl: text("issue_url"),
+});
+
+// Team chat history. `seq` gives a stable order even when two messages share a timestamp.
+export const messages = pgTable("messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  seq: serial("seq").notNull(),
+  officeId: uuid("office_id").notNull().references(() => offices.id),
+  userId: text("user_id").notNull().references(() => users.id),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
