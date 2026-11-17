@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { notFound, redirect } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
 import { auth } from "@/auth";
@@ -7,7 +8,8 @@ import { meetings, offices } from "@/db/schema";
 import { buildBoard } from "@/lib/board";
 import { fetchWork, makeGithub, type WorkItem } from "@/lib/github";
 import { officeMembers } from "@/lib/meetings";
-import { createInvite, isMember } from "@/lib/offices";
+import { isMember } from "@/lib/offices";
+import { makeInvite } from "@/app/actions";
 import { Avatar } from "@/components/Avatar";
 import { MeetingLinkForm } from "@/components/Forms";
 import { PostButton } from "@/components/PostButton";
@@ -27,6 +29,7 @@ export default async function OfficeHome({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ invite?: string }>;
 }) {
+  await connection(); // request-time render: auth() re-encrypts the session cookie with random bytes
   const { id } = await params;
   const { invite } = await searchParams;
   const s = await auth();
@@ -50,12 +53,6 @@ export default async function OfficeHome({
     boardError = isAdmin ? "설정에서 GitHub 토큰과 저장소를 등록하면 현황판이 채워집니다." : "관리자가 GitHub를 연결하면 현황판이 채워집니다.";
   }
   const board = buildBoard(items, ms);
-
-  async function makeInvite() {
-    "use server";
-    const code = await createInvite(db, id);
-    redirect(`/offices/${id}?invite=${code}`);
-  }
 
   return (
     <div className="mx-auto w-full max-w-6xl p-4">
@@ -85,6 +82,7 @@ export default async function OfficeHome({
           </ul>
           {isAdmin && (
             <form action={makeInvite} className="mt-2 border-t-4 border-black pt-3">
+              <input type="hidden" name="officeId" value={id} />
               <button className="px-btn">초대 링크 만들기</button>
               {invite && <p className="mt-2 break-all text-xs">/join/{invite}</p>}
             </form>

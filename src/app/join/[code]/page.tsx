@@ -1,30 +1,22 @@
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { auth } from "@/auth";
-import { db } from "@/db";
-import { joinByInvite, upsertUser } from "@/lib/offices";
+import { joinOffice } from "@/app/actions";
 
 export const instant = false;
 
 export default async function Join({ params }: { params: Promise<{ code: string }> }) {
+  await connection(); // request-time render: auth() re-encrypts the session cookie with random bytes
   const { code } = await params;
-  const s = await auth();
-  if (!s) redirect("/");
-
-  async function join(form: FormData) {
-    "use server";
-    const github = String(form.get("github") ?? "").trim();
-    if (!github) return;
-    await upsertUser(db, s!.user);
-    const { officeId } = await joinByInvite(db, code, s!.user.id, github);
-    redirect(`/offices/${officeId}`);
-  }
+  if (!(await auth())) redirect("/");
 
   return (
-    <main className="mx-auto max-w-sm p-8">
-      <form action={join} className="flex flex-col gap-3">
+    <main className="floor mx-auto my-16 flex w-full max-w-sm flex-col gap-4 border-4 border-black p-8">
+      <form action={joinOffice} className="px flex flex-col gap-3 p-4">
+        <input type="hidden" name="code" value={code} />
         <label className="font-bold">GitHub 사용자명</label>
-        <input name="github" required className="border-2 border-black p-2" />
-        <button className="border-2 border-black px-4 py-2 font-bold">입장</button>
+        <input name="github" required className="px-input" />
+        <button className="px-btn">입장</button>
       </form>
     </main>
   );

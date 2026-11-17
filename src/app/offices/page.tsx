@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/db";
@@ -10,6 +11,7 @@ import { CreateOfficeForm } from "@/components/Forms";
 export const instant = false;
 
 export default async function Offices() {
+  await connection(); // request-time render: auth() re-encrypts the session cookie with random bytes
   const s = await auth();
   if (!s) redirect("/");
   await upsertUser(db, s.user);
