@@ -180,6 +180,54 @@ describe("activity from meetings", () => {
   });
 });
 
+describe("roles on todos", () => {
+  const roleDeps = (todos: { title: string; assigneeName: string | null; role?: string | null }[]): MeetingDeps => ({
+    fetchText: async () => ({ pageId: "p", title: "역할 회의", text: "x" }),
+    summarize: async () => ({ decisions: [], todos }),
+  });
+
+  it("stores the role the AI gave a todo", async () => {
+    const { meetingId } = await registerMeeting(db, roleDeps([{ title: "시안", assigneeName: null, role: "디자인" }]), officeId, "m1", "u");
+    expect((await todosOf(meetingId))[0].role).toBe("디자인");
+  });
+
+  it("fills in the assignee when exactly one member has the role, leaving it editable", async () => {
+    await setRoles(db, officeId, "m1", "m1", ["개발"]);
+    const { meetingId } = await registerMeeting(db, roleDeps([{ title: "API", assigneeName: null, role: "개발" }]), officeId, "admin", "u");
+    expect((await todosOf(meetingId))[0].assigneeUserId).toBe("m1");
+  });
+
+  it("leaves the assignee empty when two members have the role", async () => {
+    await setRoles(db, officeId, "m1", "m1", ["개발"]);
+    await setRoles(db, officeId, "admin", "admin", ["개발"]);
+    const { meetingId } = await registerMeeting(db, roleDeps([{ title: "API", assigneeName: null, role: "개발" }]), officeId, "admin", "u");
+    expect((await todosOf(meetingId))[0].assigneeUserId).toBeNull();
+  });
+
+  it("keeps a named assignee over the role suggestion", async () => {
+    await setRoles(db, officeId, "m1", "m1", ["개발"]);
+    const { meetingId } = await registerMeeting(db, roleDeps([{ title: "API", assigneeName: "Admin", role: "개발" }]), officeId, "admin", "u");
+    expect((await todosOf(meetingId))[0].assigneeUserId).toBe("admin");
+  });
+
+  it("drops a role that is too long instead of failing the whole meeting", async () => {
+    const { meetingId } = await registerMeeting(db, roleDeps([{ title: "a", assigneeName: null, role: "가".repeat(30) }]), officeId, "m1", "u");
+    expect((await todosOf(meetingId))[0].role).toBeNull();
+  });
+
+  it("lets editTodos set and clear a role, and rejects a bad one before deleting anything", async () => {
+    const { meetingId } = await registerMeeting(db, roleDeps([{ title: "a", assigneeName: null }]), officeId, "m1", "u");
+    await editTodos(db, meetingId, "m1", [{ title: "a", assigneeUserId: null, repo: "o/r", role: "개발" }]);
+    expect((await todosOf(meetingId))[0].role).toBe("개발");
+    await editTodos(db, meetingId, "m1", [{ title: "a", assigneeUserId: null, repo: "o/r" }]);
+    expect((await todosOf(meetingId))[0].role).toBeNull();
+    await expect(
+      editTodos(db, meetingId, "m1", [{ title: "a", assigneeUserId: null, repo: "o/r", role: "가".repeat(13) }]),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(await todosOf(meetingId)).toHaveLength(1);
+  });
+});
+
 describe("officeMembers roles and status", () => {
   it("returns each member's roles and status", async () => {
     await setRoles(db, officeId, "m1", "m1", ["개발"]);

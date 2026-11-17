@@ -4,6 +4,7 @@ import type { Db } from "@/db";
 import { meetings, members, offices, todos, users } from "@/db/schema";
 import { logActivity } from "./activity";
 import { requireToken } from "./connections";
+import { normalizeRole, suggestAssignees } from "./roles";
 import { TeamSetupError, ValidationError } from "./errors";
 import { fetchMeetingText, type NotionLike } from "./notion";
 import { isMember, ForbiddenError } from "./offices";
@@ -23,6 +24,7 @@ export type TodoInput = {
   assigneeUserId: string | null;
   repo: string;
   description?: string;
+  role?: string | null;
 };
 
 // Reads with the acting user's own Notion token; the team only supplies the '회의록' parent page.
@@ -57,13 +59,21 @@ async function buildTodos(db: Db, officeId: string, meetingId: string, s: Summar
   const ms = await officeMembers(db, officeId);
   if (!s.todos.length) return;
   await db.insert(todos).values(
-    s.todos.map((t) => ({
-      meetingId,
-      title: t.title,
-      description: t.description,
-      assigneeUserId: matchAssignee(t.assigneeName, ms),
-      repo: o?.defaultRepo ?? "",
-    })),
+    s.todos.map((t) => {
+      let role: string | null = null;
+      try {
+        role = t.role ? normalizeRole(t.role) : null;
+      } catch {
+        role = null; // AI noise (too long, empty): drop the role instead of failing the whole meeting
+      }
+      // Named in the minutes wins; otherwise a role with exactly one person fills the assignee in (still editable before confirming).
+      let assignee = matchAssignee(t.assigneeName, ms);
+      if (!assignee) {
+        const candidates = suggestAssignees(role, ms);
+        if (candidates.length === 1) assignee = candidates[0];
+      }
+      return { meetingId, title: t.title, description: t.description, assigneeUserId: assignee, repo: o?.defaultRepo ?? "", role };
+    }),
   );
 }
 
@@ -170,6 +180,7 @@ export async function editTodos(db: Db, meetingId: string, userId: string, input
     if (typeof t?.title !== "string" || !t.title.trim()) throw new ValidationError("todo title required");
     if (typeof t.repo !== "string" || (t.repo !== "" && !o.repos.includes(t.repo))) throw new ValidationError("repo is not in the office's repo list");
     if (t.assigneeUserId !== null && !memberIds.has(t.assigneeUserId)) throw new ValidationError("assignee is not an office member");
+    if (t.role !== undefined && t.role !== null && t.role !== "") normalizeRole(t.role); // throws ValidationError before anything is deleted
   }
   // Todos that already became GitHub issues stay; everything else is replaced.
   await db.delete(todos).where(and(eq(todos.meetingId, meetingId), isNull(todos.issueUrl)));
@@ -181,6 +192,7 @@ export async function editTodos(db: Db, meetingId: string, userId: string, input
       assigneeUserId: t.assigneeUserId,
       repo: t.repo,
       description: t.description,
+      role: t.role ? normalizeRole(t.role) : null,
     })),
   );
 }

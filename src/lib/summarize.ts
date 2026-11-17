@@ -1,14 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
 
+import { PRESET_ROLES } from "./roles";
+
 export type Summary = {
   decisions: string[];
-  todos: { title: string; assigneeName: string | null; description?: string }[];
+  todos: { title: string; assigneeName: string | null; description?: string; role?: string | null }[];
 };
 export type Llm = (prompt: string) => Promise<string>;
 
 const PROMPT = `다음 회의록에서 결정 사항과 할 일을 추출해 JSON으로만 답하세요. 설명이나 코드 블록 없이 JSON만 출력합니다.
-형식: {"decisions": string[], "todos": [{"title": string, "assigneeName": string | null, "description": string}]}
+형식: {"decisions": string[], "todos": [{"title": string, "assigneeName": string | null, "description": string, "role": string | null}]}
 담당자가 회의록에 분명히 적혀 있지 않으면 assigneeName은 null로 두세요.
+role은 그 일을 맡을 역할이며 ${PRESET_ROLES.join(", ")} 중에서 고르세요. 알 수 없으면 null로 두세요.
 
 회의록:
 `;
@@ -21,8 +24,10 @@ export async function summarizeMeeting(llm: Llm, text: string): Promise<Summary>
     s.decisions.every((d: unknown) => typeof d === "string") &&
     Array.isArray(s?.todos) &&
     s.todos.every(
-      (t: { title?: unknown; assigneeName?: unknown }) =>
-        typeof t?.title === "string" && (t.assigneeName === null || typeof t.assigneeName === "string"),
+      (t: { title?: unknown; assigneeName?: unknown; role?: unknown }) =>
+        typeof t?.title === "string" &&
+        (t.assigneeName === null || typeof t.assigneeName === "string") &&
+        (t.role === undefined || t.role === null || typeof t.role === "string"),
     );
   if (!ok) throw new Error("unexpected summary shape");
   return s;
