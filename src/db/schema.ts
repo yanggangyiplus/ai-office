@@ -11,9 +11,7 @@ export const offices = pgTable("offices", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   adminId: text("admin_id").notNull().references(() => users.id),
-  notionToken: text("notion_token"), // encrypted
   notionParentPageId: text("notion_parent_page_id"),
-  githubToken: text("github_token"), // encrypted
   defaultRepo: text("default_repo"),
   repos: text("repos").array().notNull().default([]),
 });
@@ -23,8 +21,20 @@ export const members = pgTable(
   {
     officeId: uuid("office_id").notNull().references(() => offices.id),
     userId: text("user_id").notNull().references(() => users.id),
+    joinedAt: timestamp("joined_at").notNull().defaultNow(), // desk order in the team space
   },
   (t) => [primaryKey({ columns: [t.officeId, t.userId] })],
+);
+
+// Each person's own GitHub / Notion token (encrypted).
+export const connections = pgTable(
+  "connections",
+  {
+    userId: text("user_id").notNull().references(() => users.id),
+    provider: text("provider", { enum: ["github", "notion"] }).notNull(),
+    token: text("token").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.provider] })],
 );
 
 export const invites = pgTable("invites", {

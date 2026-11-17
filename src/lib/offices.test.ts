@@ -3,7 +3,6 @@ import { eq } from "drizzle-orm";
 import { makeTestDb } from "@/db/testdb";
 import { members, offices, users } from "@/db/schema";
 import type { Db } from "@/db";
-import { decrypt } from "./crypto";
 import {
   ForbiddenError,
   createInvite,
@@ -69,15 +68,19 @@ describe("offices", () => {
     const { id } = await createOffice(db, "admin", "팀");
     const code = await createInvite(db, id);
     await joinByInvite(db, code, "m1", "mgit");
-    await expect(saveSettings(db, id, "m1", { githubToken: "t" })).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(saveSettings(db, id, "m1", { repos: ["o/r"] })).rejects.toBeInstanceOf(ForbiddenError);
   });
 
-  it("stores the github token encrypted", async () => {
+  it("lets the admin save the team's repo list, default repo and notion parent page", async () => {
     const { id } = await createOffice(db, "admin", "팀");
-    await saveSettings(db, id, "admin", { githubToken: "ghp_plain", repos: ["o/r"], defaultRepo: "o/r" });
+    await saveSettings(db, id, "admin", { repos: ["o/r"], defaultRepo: "o/r", notionParentPageId: "abc" });
     const [o] = await db.select().from(offices).where(eq(offices.id, id));
-    expect(o.githubToken).not.toBe("ghp_plain");
-    expect(decrypt(o.githubToken!)).toBe("ghp_plain");
-    expect(o.repos).toEqual(["o/r"]);
+    expect(o).toMatchObject({ repos: ["o/r"], defaultRepo: "o/r", notionParentPageId: "abc" });
+  });
+
+  it("records when each member joined, for desk order", async () => {
+    const { id } = await createOffice(db, "admin", "팀");
+    const [m] = await db.select().from(members).where(eq(members.officeId, id));
+    expect(m.joinedAt).toBeInstanceOf(Date);
   });
 });

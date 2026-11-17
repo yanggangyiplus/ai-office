@@ -2,7 +2,6 @@ import { randomBytes } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/db";
 import { invites, meetings, members, offices, todos, users } from "@/db/schema";
-import { encrypt } from "./crypto";
 
 export class ForbiddenError extends Error {}
 
@@ -67,12 +66,10 @@ export async function saveSettings(
   db: Db,
   officeId: string,
   userId: string,
-  s: { notionToken?: string; notionParentPageId?: string; githubToken?: string; repos?: string[]; defaultRepo?: string },
+  s: { notionParentPageId?: string; repos?: string[]; defaultRepo?: string },
 ): Promise<void> {
   await requireAdmin(db, officeId, userId);
   const set: Partial<typeof offices.$inferInsert> = {};
-  if (s.notionToken) set.notionToken = encrypt(s.notionToken);
-  if (s.githubToken) set.githubToken = encrypt(s.githubToken);
   if (s.notionParentPageId) set.notionParentPageId = s.notionParentPageId;
   if (s.repos) set.repos = s.repos;
   if (s.defaultRepo) set.defaultRepo = s.defaultRepo;
