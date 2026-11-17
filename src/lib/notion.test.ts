@@ -16,7 +16,7 @@ function fake(opts: {
   const parents = opts.parents ?? { [CHILD]: PARENT, [PARENT]: null };
   return {
     pages: {
-      async retrieve({ page_id }) {
+      async retrieve({ page_id }: { page_id: string }) {
         const id = page_id.replace(/-/g, "");
         if (opts.missing || !(id in parents)) throw new Error("object_not_found");
         const p = parents[id];
