@@ -12,7 +12,9 @@ import type { Zoom } from "@/lib/space/camera";
 import { TEAM_MAP, type Interactable } from "@/lib/space/map";
 import { ChatPanel } from "./ChatPanel";
 import { RoomPanel } from "./RoomPanel";
+import type { TeamItem } from "@/lib/team-items-meta";
 import { ActivityCard, MembersProgressCard, MyProgressCard, PresenceCard, RolesCard, TeamProgressCard, TodayMeetingsCard, RoleTag } from "./SideCards";
+import { TeamRulesCard, TodayCard } from "./TeamCards";
 import { SpaceCanvas } from "./SpaceCanvas";
 import { STATUS_LABEL, type MeetingView, type MemberView } from "./types";
 
@@ -103,6 +105,7 @@ export function TeamSpace(props: {
   boardNote: string;
   initialChat: ChatMessage[];
   feed: ActivityItem[];
+  items: TeamItem[];
 }) {
   const { team, me, mode, members, meetings, board } = props;
   const router = useRouter();
@@ -270,6 +273,8 @@ export function TeamSpace(props: {
         <aside className="flex flex-col gap-3" aria-label="팀 정보">
           <TeamProgressCard board={board} />
           <MyProgressCard board={board} me={me} />
+          <TodayCard teamId={team.id} me={mine} />
+          <TeamRulesCard teamId={team.id} items={props.items} isAdmin={team.isAdmin} />
           <RolesCard teamId={team.id} me={mine} />
           <MembersProgressCard board={board} members={members} me={me.id} />
           <TodayMeetingsCard meetings={meetings} onOpen={(id) => { setSelected(id); open("meeting"); }} />

@@ -25,6 +25,7 @@ export const members = pgTable(
     joinedAt: timestamp("joined_at").notNull().defaultNow(), // desk order in the team space
     roles: text("roles").array().notNull().default([]), // PO, 디자인, 개발 ... (up to 5)
     status: text("status", { enum: ["working", "meeting", "away", "meal"] }).notNull().default("working"),
+    today: text("today").notNull().default(""), // one line: what I am doing today
   },
   (t) => [primaryKey({ columns: [t.officeId, t.userId] })],
 );
@@ -98,5 +99,16 @@ export const messages = pgTable("messages", {
   officeId: uuid("office_id").notNull().references(() => offices.id),
   userId: text("user_id").notNull().references(() => users.id),
   body: text("body").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// The team's own rules, notices and shared links (one table, told apart by kind).
+export const teamItems = pgTable("team_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  officeId: uuid("office_id").notNull().references(() => offices.id),
+  kind: text("kind", { enum: ["rule", "notice", "link"] }).notNull(),
+  title: text("title").notNull(),
+  url: text("url"),
+  createdBy: text("created_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

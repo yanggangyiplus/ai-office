@@ -43,6 +43,13 @@
       "when": 1794910377424,
       "tag": "0005_motionless_spiral",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794964055246,
+      "tag": "0006_thankful_sunspot",
+      "breakpoints": true
     }
   ]
 }

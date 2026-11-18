@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Db } from "@/db";
-import { activity, attendance, meetings, members, messages, offices, todos, users } from "@/db/schema";
+import { activity, attendance, meetings, members, messages, offices, teamItems, todos, users } from "@/db/schema";
 import type { WorkItem } from "./github";
 import type { Summary } from "./summarize";
 
@@ -85,6 +85,18 @@ export async function seedDemo(db: Db): Promise<void> {
   await todo(retro, "타일 아트 다시 그리기", 1);
   await todo(retro, "현황판 개선", 2);
   await todo(retro, "홍보 문구 작성", 3);
+
+  const TODAY = ["로그인 PR 마무리", "타일 아트 다시 그리기", "Notion 연동 조사", "", ""];
+  for (const [i, p] of PEOPLE.entries()) if (TODAY[i]) await db.update(members).set({ today: TODAY[i] }).where(and(eq(members.officeId, team.id), eq(members.userId, p.id)));
+  const item = (who: number, kind: "rule" | "notice" | "link", title: string, url?: string) =>
+    db.insert(teamItems).values({ officeId: team.id, kind, title, url: url ?? null, createdBy: PEOPLE[who].id });
+  await item(0, "notice", "금요일 오후 3시 시연 — 그 전에 리허설");
+  await item(1, "notice", "디자인 시안은 목요일까지 확정");
+  await item(0, "rule", "PR은 하루 안에 리뷰한다");
+  await item(2, "rule", "회의가 끝나면 그날 안에 정리하고 확정한다");
+  await item(3, "rule", "막히면 30분 안에 채팅으로 묻는다");
+  await item(1, "link", "Figma · 시안 v2", "https://www.figma.com/file/demo");
+  await item(0, "link", "GitHub · ai-office", "https://github.com/demo/ai-office");
 
   const say = (who: number, body: string, minsAgo: number) =>
     db.insert(messages).values({ officeId: team.id, userId: PEOPLE[who].id, body, createdAt: new Date(Date.now() - minsAgo * 60_000) });

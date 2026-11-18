@@ -52,6 +52,7 @@ export async function officeMembers(db: Db, officeId: string) {
       joinedAt: members.joinedAt,
       roles: members.roles,
       status: members.status,
+      today: members.today,
     })
     .from(members)
     .innerJoin(users, eq(users.id, members.userId))

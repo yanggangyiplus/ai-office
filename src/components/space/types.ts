@@ -8,6 +8,7 @@ export type MemberView = {
   present: boolean; // checked in right now
   status: Status;
   desk: number | null;
+  today: string; // one line about today
 };
 
 export type TodoView = {

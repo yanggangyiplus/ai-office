@@ -11,6 +11,7 @@ import { loadWork } from "@/lib/board-data";
 import { recentChat } from "@/lib/chat";
 import { officeMembers } from "@/lib/meetings";
 import { isMember } from "@/lib/offices";
+import { listItems } from "@/lib/team-items";
 import { realtimeMode } from "@/lib/realtime/mode";
 import { assignDesks } from "@/lib/space/desks";
 import { TEAM_MAP, deskSpots, spawnPoint } from "@/lib/space/map";
@@ -41,6 +42,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
     present: presence.get(m.userId)?.present ?? false,
     status: m.status,
     desk: desks.get(m.userId) ?? null,
+    today: m.today,
   }));
 
   const rows = await db.select().from(meetings).where(eq(meetings.officeId, id)).orderBy(desc(meetings.createdAt));
@@ -75,6 +77,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
       boardNote={note}
       initialChat={await recentChat(db, id, s.user.id)}
       feed={await recentActivity(db, id, s.user.id)}
+      items={await listItems(db, id, s.user.id)}
     />
   );
 }

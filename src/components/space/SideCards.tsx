@@ -191,6 +191,7 @@ export function PresenceCard({ members }: { members: MemberView[] }) {
             <span>{m.name}</span>
             {m.roles.map((r) => <RoleTag key={r} role={r} />)}
             <span className="ml-auto text-[11px] text-[var(--sub)]">{m.present ? STATUS_LABEL[m.status] : "퇴근"}</span>
+            {m.today && <p className="w-full pl-3.5 text-xs text-[var(--sub)]">“{m.today}”</p>}
           </li>
         ))}
       </ul>
