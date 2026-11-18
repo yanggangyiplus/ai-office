@@ -46,3 +46,6 @@ next-env.d.ts
 
 .data/
 .env*.local
+
+# Google OAuth client download; never commit
+client_secret_*.json
