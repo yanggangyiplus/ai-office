@@ -45,10 +45,12 @@ export function MyRoom({
   user,
   teams,
   status,
+  isAdmin = false,
 }: {
   user: { id: string; name: string };
   teams: { id: string; name: string }[];
   status: { github: boolean; notion: boolean };
+  isAdmin?: boolean;
 }) {
   const [panel, setPanel] = useState<Panel>(null);
   const self = useMemo(() => ({ id: user.id, userId: user.id, name: user.name }), [user.id, user.name]);
@@ -69,6 +71,7 @@ export function MyRoom({
         <span className={`rounded-full border px-3 py-1 text-xs ${connected(status.notion)}`}>{status.notion ? "● Notion 연결됨" : "○ Notion 미연결"}</span>
         <span className="flex-1" />
         <nav className="flex flex-wrap gap-2 text-sm" aria-label="이동">
+          {isAdmin && <Link className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[var(--sub)]" href="/admin">관리자</Link>}
           <button className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[var(--sub)]" onClick={() => setPanel("door")}>로그아웃</button>
         </nav>
       </header>
