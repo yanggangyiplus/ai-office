@@ -1,5 +1,5 @@
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import type { PgDatabase } from "drizzle-orm/pg-core";
 import * as schema from "./schema";
 
@@ -21,12 +21,15 @@ async function localDb(): Promise<Db> {
 }
 
 // In production a missing DATABASE_URL must fail at query time (the build imports this module without env).
-const useNeon = process.env.DATABASE_URL || process.env.NODE_ENV === "production";
+// POSTGRES_URL is what the Vercel Supabase integration sets (the pooled connection); DATABASE_URL wins when both exist.
+const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+const useRemote = url || process.env.NODE_ENV === "production";
 // Cached on globalThis: dev bundles route handlers and pages separately, and two PGlite instances on one folder do not see each other's writes.
 // Stored on `process`, not globalThis: route bundles can get separate globalThis objects but share one process.
 const g = process as unknown as { __aiOfficeDb?: Promise<Db> };
 g.__aiOfficeDb ??= Promise.resolve(
-  useNeon ? (drizzle(neon(process.env.DATABASE_URL ?? "postgres://unset"), { schema }) as unknown as Db) : localDb(),
+  // prepare: false because Supabase's pooled (transaction-mode) connection does not support prepared statements; max 1 per serverless instance.
+  useRemote ? (drizzle(postgres(url ?? "postgres://unset", { prepare: false, max: 1 }), { schema }) as unknown as Db) : localDb(),
 ).catch((e) => {
   g.__aiOfficeDb = undefined; // do not cache a failed init (dev hot reload can open the local db twice); the next import retries
   throw e;
