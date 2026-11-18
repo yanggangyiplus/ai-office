@@ -21,8 +21,9 @@ async function localDb(): Promise<Db> {
 }
 
 // In production a missing DATABASE_URL must fail at query time (the build imports this module without env).
-// POSTGRES_URL is what the Vercel Supabase integration sets (the pooled connection); DATABASE_URL wins when both exist.
-const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+// POSTGRES_URL is what the Vercel Supabase integration sets (the pooled connection). It is only used in production, so a
+// `vercel env pull` into .env.local never points local development at the live database. DATABASE_URL always wins.
+const url = process.env.DATABASE_URL || (process.env.NODE_ENV === "production" ? process.env.POSTGRES_URL : undefined);
 const useRemote = url || process.env.NODE_ENV === "production";
 // Cached on globalThis: dev bundles route handlers and pages separately, and two PGlite instances on one folder do not see each other's writes.
 // Stored on `process`, not globalThis: route bundles can get separate globalThis objects but share one process.
