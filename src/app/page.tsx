@@ -1,8 +1,8 @@
 import { auth } from "@/auth";
-import { testLoginEnabled } from "@/auth.config";
+import { githubLoginEnabled, testLoginEnabled } from "@/auth.config";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { googleSignIn, testSignIn } from "./actions";
+import { githubSignIn, googleSignIn, testSignIn } from "./actions";
 
 // Cache Components is on by default; this page reads the session, so it must not be prerendered.
 export const instant = false;
@@ -16,6 +16,11 @@ export default async function Home() {
       <form action={googleSignIn}>
         <button className="px-btn w-full">Google로 로그인</button>
       </form>
+      {githubLoginEnabled(process.env) && (
+        <form action={githubSignIn}>
+          <button className="px-btn w-full">GitHub로 로그인 (GitHub도 함께 연결)</button>
+        </form>
+      )}
 
       {testLoginEnabled(process.env) && (
         <form className="px flex flex-col gap-2 p-4" action={testSignIn}>

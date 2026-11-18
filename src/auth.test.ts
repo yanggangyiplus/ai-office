@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { authConfig, testLoginAuthorize, testLoginEnabled } from "./auth.config";
+import { authConfig, githubLoginEnabled, testLoginAuthorize, testLoginEnabled } from "./auth.config";
+
+describe("github login", () => {
+  it("shows only when both OAuth keys exist", () => {
+    expect(githubLoginEnabled({})).toBe(false);
+    expect(githubLoginEnabled({ AUTH_GITHUB_ID: "id" })).toBe(false);
+    expect(githubLoginEnabled({ AUTH_GITHUB_ID: "id", AUTH_GITHUB_SECRET: " " })).toBe(false);
+    expect(githubLoginEnabled({ AUTH_GITHUB_ID: "id", AUTH_GITHUB_SECRET: "s" })).toBe(true);
+  });
+  it("gives a hidden-email account a noreply address and keeps the account id", async () => {
+    const t = await authConfig.callbacks!.jwt!({
+      token: { sub: "random" },
+      account: { provider: "github", providerAccountId: "42" },
+      profile: { login: "octo" },
+    } as never);
+    expect(t!.sub).toBe("42");
+    expect(t!.email).toBe("octo@users.noreply.github.com");
+  });
+});
 
 describe("test login (dev only)", () => {
   it("is off unless AUTH_TEST_LOGIN=1", () => {

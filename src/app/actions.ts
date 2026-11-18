@@ -11,6 +11,10 @@ export async function googleSignIn() {
   await signIn("google", { redirectTo: "/me" });
 }
 
+export async function githubSignIn() {
+  await signIn("github", { redirectTo: "/me" });
+}
+
 export async function testSignIn(form: FormData) {
   await signIn("test", { name: String(form.get("name") ?? ""), redirectTo: "/me" });
 }
