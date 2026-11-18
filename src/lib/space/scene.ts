@@ -140,6 +140,7 @@ export function drawTeamScene(ctx: CanvasRenderingContext2D, o: TeamSceneOpts) {
   rect(ctx, 352, 416, 10, 32, "#8a95a2"); rect(ctx, 438, 416, 10, 32, "#8a95a2");
   rect(ctx, 368, 464, 64, 32, "#f3f5f8"); rect(ctx, 368, 464, 64, 2, "#ffffff"); rect(ctx, 368, 494, 64, 2, "#c0c8d1"); rect(ctx, 394, 470, 10, 7, "#ffffff");
   label(ctx, "휴게", 400, 500, "#6b7686", "center");
+  rect(ctx, 352, 448, 96, 16, "#dcebe2"); // rest zone strip (status: away / meal)
   rect(ctx, 496, 416, 32, 48, "#59636d"); rect(ctx, 499, 419, 26, 10, "#2b323a"); rect(ctx, 506, 432, 12, 16, "#e6eaee"); rect(ctx, 496, 462, 32, 2, "#2f3740");
   label(ctx, "커피", 512, 468, "#6b7686", "center");
 

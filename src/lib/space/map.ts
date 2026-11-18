@@ -46,6 +46,7 @@ export const TEAM_MAP: SpaceMap = {
     rect(7, 15, 8, 16, "P"); rect(10, 15, 10, 16, "P"); rect(14, 15, 14, 16, "P"); // printer, water, plant
     rect(2, 27, 2, 28, "P"); rect(14, 27, 14, 28, "P"); rect(40, 27, 40, 28, "P"); rect(66, 27, 66, 28, "P"); // plants
     rect(22, 26, 27, 27, "P"); rect(23, 29, 26, 30, "P"); rect(31, 26, 32, 28, "P"); // sofa, table, coffee machine
+    rect(22, 28, 27, 28, "R"); // rest zone: the strip between the sofa and the coffee table
     rect(34, 32, 37, 33, "E"); // entrance
   }),
   // the tile just below each desk is where that person's chair is
@@ -91,6 +92,16 @@ export function spawnPoint(map: SpaceMap): Position {
       if (d < best.d) best = { col, row, d };
     }
   return { x: best.col * TILE + TILE / 2, y: best.row * TILE + TILE / 2, dir: "down" };
+}
+
+// Where a status puts you, like the zones in a shared office: working at your own chair, meeting in the meeting room,
+// away or at a meal on the rest strip. null means this status has no spot here (no desk yet, or a map without zones).
+export function statusSpot(map: SpaceMap, status: "working" | "meeting" | "away" | "meal", desk: number | null): Position | null {
+  if (map !== TEAM_MAP) return null;
+  const at = (col: number, row: number, dir: Position["dir"]): Position => ({ x: col * TILE + TILE / 2, y: row * TILE + TILE / 2, dir });
+  if (status === "working") return desk != null && map.seats[desk] ? { ...map.seats[desk], dir: "up" } : null;
+  if (status === "meeting") return at(7, 8, "up"); // the open row below the table, inside the glass room
+  return at(status === "away" ? 24 : 25, 28, "up");
 }
 
 export type Interactable = "meeting" | "board" | "computer" | "teamboard" | "door" | "entrance";

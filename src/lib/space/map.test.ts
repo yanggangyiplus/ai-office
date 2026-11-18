@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MY_ROOM, TEAM_MAP, TILE, deskSpots, interactTarget, isSolid, spawnPoint, type SpaceMap } from "./map";
+import { MY_ROOM, TEAM_MAP, TILE, deskSpots, interactTarget, isSolid, spawnPoint, statusSpot, type SpaceMap } from "./map";
 
 const center = (col: number, row: number) => ({ x: col * TILE + TILE / 2, y: row * TILE + TILE / 2, dir: "down" as const });
 const count = (m: SpaceMap, ch: string) => m.grid.join("").split(ch).length - 1;
@@ -125,5 +125,29 @@ describe("spawnPoint", () => {
   it("starts at the entrance of the team map", () => {
     const p = spawnPoint(TEAM_MAP);
     expect(TEAM_MAP.grid[Math.floor(p.y / TILE)][Math.floor(p.x / TILE)]).toBe("E");
+  });
+});
+
+describe("statusSpot", () => {
+  const tile = (p: { x: number; y: number }) => ({ col: Math.floor(p.x / TILE), row: Math.floor(p.y / TILE) });
+  it("working goes to the member's own chair", () => {
+    expect(statusSpot(TEAM_MAP, "working", 3)).toEqual({ ...TEAM_MAP.seats[3], dir: "up" });
+  });
+  it("working without a desk goes nowhere", () => {
+    expect(statusSpot(TEAM_MAP, "working", null)).toBeNull();
+  });
+  it("meeting lands on a walkable tile inside the meeting room", () => {
+    const { col, row } = tile(statusSpot(TEAM_MAP, "meeting", null)!);
+    expect(TEAM_MAP.grid[row][col]).toBe("M");
+    expect(solidAt(TEAM_MAP, col, row)).toBe(false);
+  });
+  it("away and meal land on the rest zone", () => {
+    for (const s of ["away", "meal"] as const) {
+      const { col, row } = tile(statusSpot(TEAM_MAP, s, null)!);
+      expect(TEAM_MAP.grid[row][col]).toBe("R");
+    }
+  });
+  it("my room has no zones", () => {
+    expect(statusSpot(MY_ROOM, "meeting", null)).toBeNull();
   });
 });

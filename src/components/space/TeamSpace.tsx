@@ -9,7 +9,7 @@ import { AblyTransport } from "@/lib/realtime/ably";
 import { LocalTransport } from "@/lib/realtime/local";
 import type { ChatMessage, Position, Transport } from "@/lib/realtime/types";
 import type { Zoom } from "@/lib/space/camera";
-import { TEAM_MAP, type Interactable } from "@/lib/space/map";
+import { TEAM_MAP, statusSpot, type Interactable } from "@/lib/space/map";
 import { ChatPanel } from "./ChatPanel";
 import { RoomPanel } from "./RoomPanel";
 import type { TeamItem } from "@/lib/team-items-meta";
@@ -119,6 +119,16 @@ export function TeamSpace(props: {
   const panelRef = useRef<HTMLDivElement>(null);
 
   const mine = members.find((m) => m.userId === me.id)!;
+
+  // Picking a status walks you to its zone (like the reference office); the first render does not move anyone.
+  const [warp, setWarp] = useState<(Position & { n: number }) | null>(null);
+  const status = mine.present ? mine.status : null;
+  const [seenStatus, setSeenStatus] = useState(status);
+  if (status !== seenStatus) {
+    setSeenStatus(status);
+    const spot = status && statusSpot(TEAM_MAP, status, mine.desk ?? null);
+    if (spot) setWarp({ ...spot, n: (warp?.n ?? 0) + 1 });
+  }
   const progress = teamProgress(board);
   const confirmed = meetings.filter((m) => m.status === "confirmed").length;
 
@@ -233,6 +243,7 @@ export function TeamSpace(props: {
             meetingText={`확정 ${confirmed} · 초안 ${meetings.length - confirmed}`}
             rolesByUser={rolesByUser}
             bubbles={bubbles}
+            warp={warp}
             onInteract={onInteract}
           />
 

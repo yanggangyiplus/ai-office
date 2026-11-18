@@ -27,6 +27,7 @@ type Props = {
   meetingText?: string;
   rolesByUser?: Record<string, string[]>; // role tags above walking characters
   bubbles?: Record<string, string>; // speech bubble text by userId
+  warp?: (Position & { n: number }) | null; // put the player here whenever n changes (a status zone)
   onInteract: (t: Interactable) => void;
 };
 
@@ -48,6 +49,7 @@ export function SpaceCanvas(props: Props) {
     let pos = start;
     let lastSent: { at: number; x: number; y: number } | null = null;
     let lastPresenceAt = 0;
+    let warped = latest.current.warp?.n ?? 0; // a warp that already happened before this loop started is not replayed
     let wasMoving = false;
     let walkClock = 0;
     let last = performance.now();
@@ -101,6 +103,18 @@ export function SpaceCanvas(props: Props) {
       const dt = Math.min(now - last, 100);
       last = now;
       const p = latest.current;
+
+      const w = p.warp;
+      if (w && w.n !== warped) {
+        warped = w.n;
+        pos = { x: w.x, y: w.y, dir: w.dir };
+        if (transport && !kickedRef.current) {
+          transport.publishMove(pos);
+          transport.setPresence(pos).catch(() => {});
+          lastSent = { at: now, x: pos.x, y: pos.y };
+          lastPresenceAt = now;
+        }
+      }
 
       let dx = 0;
       let dy = 0;
